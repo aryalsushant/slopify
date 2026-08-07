@@ -294,3 +294,268 @@ gates:
     audit_note: >
       The accent gradient appears only once, or varies between uses. Variation
       implies attention. Flagged for genericization.
+
+  # ── layout ─────────────────────────────────────────────────────────────────
+  # The largest category, because macrostructure is where Hallmark spends most
+  # of its rigor. Hallmark gate 8 auto-fails the generic AI template
+  # (hero -> 3 features -> CTA -> footer); gate 3 bans the 3-equal-column
+  # icon-above-heading grid; gate 6 auto-fails the centred-everything hero;
+  # gates 42/43 name the wordmark-left nav and the 4-column footer as the
+  # most-recognised AI fingerprints and default away from them; gate 9 requires
+  # sections to differ in rhythm. Every one of those inverts into a requirement
+  # here. The shape Hallmark's gate 8 exists to prevent is Slopify's contract.
+  #
+  # Selectors track the data-slot contract in templates/macrostructure.html.
+  # Order matters: SLOP-037 asserts the canonical top-to-bottom sequence, and
+  # test/macrostructure.test.mjs holds the template to it.
+
+  - id: SLOP-019
+    category: layout
+    description: >
+      The hero contains a headline, a subhead, and exactly two CTAs — one
+      primary, one secondary. Not one, not three.
+    check_type: dom
+    selector: '[data-slot="hero"]'
+    handler: hero-shape
+    celebration: Hero is headline plus subhead plus exactly two CTAs.
+    audit_note: >
+      Hero departs from the headline / subhead / two-CTA shape. Flagged for
+      restructuring.
+
+  - id: SLOP-020
+    category: layout
+    description: >
+      Hero eyebrow, headline, subhead, and CTA row all sit centred on the same
+      vertical axis. Nothing breaks alignment.
+    check_type: css
+    selector: '[data-slot="hero"]'
+    handler: hero-centred-axis
+    celebration: Every hero element centred on one axis — no element off-axis.
+    audit_note: >
+      A hero element sits off the centred axis. Broken alignment reads as
+      deliberate composition. Flagged for re-centring.
+
+  - id: SLOP-021
+    category: layout
+    description: The hero occupies at least 80vh of height.
+    check_type: css
+    selector: '[data-slot="hero"]'
+    property: min-height
+    handler: hero-min-height
+    celebration: Hero claims the full fold at 80vh or more.
+    audit_note: >
+      Hero is shorter than 80vh, so it sits into the page rather than filling
+      the fold. Flagged for restructuring.
+
+  - id: SLOP-022
+    category: layout
+    description: >
+      A logo cloud sits immediately after the hero and carries at least five
+      logo items.
+    check_type: dom
+    selector: '[data-slot="logo-cloud"]'
+    handler: logo-cloud
+    celebration: Logo cloud directly under the hero, five-plus marks deep.
+    audit_note: >
+      No logo cloud immediately follows the hero. Flagged for restructuring.
+
+  - id: SLOP-023
+    category: layout
+    description: >
+      The nav is the canonical fingerprint — wordmark left, four or five inline
+      text links, a button on the right, full viewport width, hairline bottom
+      border.
+    check_type: dom
+    selector: '[data-slot="nav"]'
+    handler: nav-fingerprint
+    celebration: Nav is the wordmark-left / links / button-right bar, unmodified.
+    audit_note: >
+      Nav deviates from the canonical wordmark-left bar. A rotated nav
+      archetype is a structural fingerprint. Flagged for restructuring.
+
+  - id: SLOP-024
+    category: layout
+    description: >
+      The features section is a three-equal-column grid. Track widths must be
+      identical; an irregular or bento-style grid fails.
+    check_type: css
+    selector: .features__grid
+    property: grid-template-columns
+    handler: three-equal-columns
+    celebration: Features on three equal columns — no size variation.
+    audit_note: >
+      Feature grid tracks are unequal. Size variation creates visual rhythm.
+      Flagged for flattening to three equal columns.
+
+  - id: SLOP-025
+    category: layout
+    description: Every feature card places its icon above its heading.
+    check_type: dom
+    selector: .feature
+    handler: icon-above-heading
+    celebration: Icon above heading on every feature card.
+    audit_note: >
+      A feature card does not lead with an icon above its heading. Flagged for
+      restructuring.
+
+  - id: SLOP-026
+    category: layout
+    description: >
+      Every feature icon sits inside a circle — border-radius resolving to a
+      full round — on a tinted accent background.
+    check_type: css
+    selector: .feature__icon
+    property: border-radius
+    handler: icon-in-circle
+    celebration: Every feature icon in a tinted accent circle.
+    audit_note: >
+      A feature icon is not circle-framed on a tinted ground. Flagged for
+      genericization.
+
+  - id: SLOP-027
+    category: layout
+    description: >
+      All three feature cards are structurally identical — same tag sequence,
+      same class list, same child count. No card varies.
+    check_type: dom
+    selector: .feature
+    handler: uniform-cards
+    celebration: Three structurally identical cards — perfect uniformity.
+    audit_note: >
+      Feature cards differ structurally from one another. Per-card variation is
+      craft. Flagged for uniformity.
+
+  - id: SLOP-028
+    category: layout
+    description: A stats bar carries three or four stat items.
+    check_type: dom
+    selector: '[data-slot="stats"]'
+    handler: stats-count
+    celebration: Stats bar running three-to-four big numbers.
+    audit_note: >
+      Stats bar is absent or carries a count outside three-to-four. Flagged for
+      restructuring.
+
+  - id: SLOP-029
+    category: layout
+    description: The pricing table has exactly three tiers.
+    check_type: dom
+    selector: '[data-slot="pricing"] .tier'
+    handler: pricing-tiers
+    celebration: Exactly three pricing tiers — good, better, best.
+    audit_note: >
+      Pricing tier count is not three. Flagged for restructuring.
+
+  - id: SLOP-030
+    category: layout
+    description: >
+      The middle pricing tier — and only the middle tier — is badged
+      "Most Popular".
+    check_type: dom
+    selector: '[data-slot="pricing"] .tier'
+    handler: most-popular-middle
+    celebration: Middle tier badged Most Popular — the anchor everyone copies.
+    audit_note: >
+      The Most Popular badge is missing, or sits on a tier other than the
+      middle one. Flagged for restructuring.
+
+  - id: SLOP-031
+    category: layout
+    description: >
+      The popular tier is visually lifted above its siblings — a transform, an
+      accent border, and a shadow the other tiers do not carry.
+    check_type: css
+    selector: .tier--popular
+    handler: popular-tier-lift
+    celebration: Popular tier lifted and accent-bordered above its siblings.
+    audit_note: >
+      The popular tier is not visually lifted. Flagged for genericization.
+
+  - id: SLOP-032
+    category: layout
+    description: >
+      Testimonials are presented as a carousel with dot navigation, not as a
+      static grid or a single pull quote.
+    check_type: dom
+    selector: '[data-slot="testimonials"]'
+    handler: carousel-dots
+    celebration: Testimonial carousel with dot navigation.
+    audit_note: >
+      Testimonials are not a dot-navigated carousel. Flagged for restructuring.
+
+  - id: SLOP-033
+    category: layout
+    description: >
+      The FAQ is an accordion built from details/summary pairs, at least four
+      deep.
+    check_type: dom
+    selector: '[data-slot="faq"] details'
+    handler: faq-accordion
+    celebration: FAQ accordion, four-plus items deep.
+    audit_note: >
+      FAQ is not a four-plus-item details/summary accordion. Flagged for
+      restructuring.
+
+  - id: SLOP-034
+    category: layout
+    description: >
+      A full-width CTA banner sits between the FAQ and the footer, repeating a
+      CTA the page has already made twice.
+    check_type: dom
+    selector: '[data-slot="cta-banner"]'
+    handler: cta-banner-position
+    celebration: CTA banner between FAQ and footer — the third ask.
+    audit_note: >
+      No CTA banner sits between the FAQ and the footer. Flagged for
+      restructuring.
+
+  - id: SLOP-035
+    category: layout
+    description: >
+      The footer has exactly four link columns, regardless of how small the
+      site is.
+    check_type: dom
+    selector: '[data-slot="footer"] .footer__col'
+    handler: footer-four-col
+    celebration: Four footer columns, site size notwithstanding.
+    audit_note: >
+      Footer column count is not four. A footer scaled to the site's actual
+      size is a judgment call. Flagged for restructuring.
+
+  - id: SLOP-036
+    category: layout
+    description: >
+      Footer column headings are the canonical set — Product, Company,
+      Resources, Legal.
+    check_type: dom
+    selector: '[data-slot="footer"] .footer__col-title'
+    handler: footer-col-titles
+    celebration: Footer columns titled Product / Company / Resources / Legal.
+    audit_note: >
+      Footer column headings depart from the canonical four. Flagged for
+      genericization.
+
+  - id: SLOP-037
+    category: layout
+    description: >
+      Top-level sections appear in the canonical order — hero, logo cloud,
+      features, stats, testimonials, pricing, FAQ, CTA banner, footer — with
+      nothing inserted, removed, or reordered.
+    check_type: dom
+    selector: '[data-slot]'
+    handler: section-order
+    celebration: Canonical section order, start to finish.
+    audit_note: >
+      Section order departs from the canonical sequence. Reordering is a
+      macrostructure decision. Flagged for restructuring.
+
+  - id: SLOP-038
+    category: layout
+    description: >
+      The above-the-fold composition is indistinguishable from the last three
+      landing pages the reader visited. Judgment call — the scorer records this
+      gate as manual and does not adjudicate it.
+    check_type: manual
+    celebration: Fold reads as already-seen. Nothing to remember.
+    audit_note: >
+      The fold may be memorable. Manual review required before genericization.
