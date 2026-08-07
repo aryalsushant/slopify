@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>The Quiet Hour — Issue Nine</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet" />
+<style>
+/* The negative-control fixture. Hand-built with actual design craft so the
+ * scorer can be proven to tell the difference. Every choice here is one the
+ * pro-slop gates are written to reject:
+ *
+ *   - display/body pairing off the font allowlist (Fraunces + Source Serif 4)
+ *   - warm tinted paper and warm near-black ink, never #fff on slate
+ *   - no gradient anywhere; one muted ochre accent, well under 5% of the fold
+ *   - asymmetric long-document macrostructure, not hero -> features -> CTA
+ *   - hairline rules and a colour shift give each section its own rhythm
+ *   - one named-property transition, with a reduced-motion fallback
+ *   - honest copy: no fabricated metric, no testimonial, no risk-reversal line
+ *
+ * Making this page more generic would break test/gates.test.mjs.
+ */
+
+:root {
+  --paper: #FBFAF8;
+  --paper-2: #F3F0EA;
+  --ink: #1A1714;
+  --ink-soft: #554E45;
+  --rule: #DED8CE;
+  --accent: #8A5A2B;
+  --measure: 62ch;
+  --space-s: 12px;
+  --space-m: 24px;
+  --space-l: 48px;
+  --space-xl: 96px;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+body, h1, h2, h3, p, ul, li, figure, blockquote { margin: 0; padding: 0; }
+
+body {
+  font-family: 'Source Serif 4', Georgia, serif;
+  font-size: 17px;
+  font-weight: 400;
+  line-height: 1.62;
+  color: #1A1714;
+  background-color: #FBFAF8;
+}
+
+h1, h2, h3 {
+  font-family: 'Fraunces', Georgia, serif;
+  font-weight: 600;
+  font-style: normal;
+  line-height: 0.98;
+  letter-spacing: -0.015em;
+}
+
+a { color: #1A1714; text-decoration: none; border-bottom: 1px solid #DED8CE; }
+a:hover { border-bottom-color: #8A5A2B; }
+a:focus-visible { outline: 2px solid #8A5A2B; outline-offset: 3px; }
+
+ul { list-style: none; }
+
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 var(--space-m); }
+
+/* One reveal, naming the properties it animates. */
+.rise {
+  opacity: 1;
+  transform: none;
+  transition: opacity 520ms var(--ease-out), transform 520ms var(--ease-out);
+}
+@media (prefers-reduced-motion: reduce) {
+  .rise { transition: opacity 140ms linear; transform: none; }
+}
+
+/* ── masthead: newspaper register, not a wordmark-and-buttons bar ─────────── */
+.masthead {
+  border-bottom: 2px solid #1A1714;
+  padding: var(--space-m) 0 var(--space-s);
+  margin-bottom: var(--space-xl);
+}
+.masthead__title {
+  font-size: clamp(2.75rem, 9vw, 6rem);
+  text-align: center;
+}
+.masthead__meta {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-m);
+  padding-top: var(--space-s);
+  font-size: 0.8125rem;
+  color: #554E45;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── opening: asymmetric, spans broken across a 12-column field ───────────── */
+.opening {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: var(--space-m);
+  padding-bottom: var(--space-xl);
+}
+.opening__lead {
+  grid-column: 1 / span 7;
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: clamp(1.5rem, 3.2vw, 2.25rem);
+  line-height: 1.18;
+}
+.opening__lead em { font-style: italic; }
+.opening__note {
+  grid-column: 9 / span 4;
+  align-self: end;
+  font-size: 0.9375rem;
+  color: #554E45;
+  border-left: 1px solid #DED8CE;
+  padding-left: var(--space-m);
+}
+
+/* ── the three entries: each gets its own rhythm ──────────────────────────── */
+.entry { padding: var(--space-l) 0; border-top: 1px solid #DED8CE; }
+.entry--set { background-color: #F3F0EA; padding-inline: var(--space-m); }
+.entry__no {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 0.875rem;
+  color: #8A5A2B;
+  display: block;
+  margin-bottom: var(--space-s);
+  font-variant-numeric: tabular-nums;
+}
+.entry__title { font-size: clamp(1.75rem, 4vw, 2.75rem); margin-bottom: var(--space-m); }
+.entry__body { max-width: var(--measure); }
+.entry__body p + p { margin-top: 1.05em; }
+.entry--set .entry__body { margin-left: auto; }
+.entry--wide .entry__body { max-width: 74ch; }
+
+/* ── a single pull quote, set large, no card ──────────────────────────────── */
+.pull {
+  padding: var(--space-xl) 0;
+  border-top: 1px solid #DED8CE;
+  border-bottom: 1px solid #DED8CE;
+  margin: var(--space-l) 0;
+}
+.pull blockquote {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: clamp(1.5rem, 4.5vw, 3rem);
+  line-height: 1.06;
+  max-width: 24ch;
+}
+.pull figcaption { margin-top: var(--space-m); font-size: 0.875rem; color: #554E45; }
+
+/* ── index: a list, not a card grid ───────────────────────────────────────── */
+.index { padding: var(--space-l) 0; }
+.index__title { font-size: 1.125rem; margin-bottom: var(--space-m); }
+.index__row {
+  display: grid;
+  grid-template-columns: 3.5rem 1fr auto;
+  gap: var(--space-m);
+  padding: 14px 0;
+  border-top: 1px solid #DED8CE;
+  align-items: baseline;
+  font-size: 0.9375rem;
+}
+.index__row span:first-child { color: #8A5A2B; font-variant-numeric: tabular-nums; }
+.index__row span:last-child { color: #554E45; }
+
+/* ── letter close, one column ─────────────────────────────────────────────── */
+.close {
+  border-top: 2px solid #1A1714;
+  margin-top: var(--space-xl);
+  padding: var(--space-l) 0 var(--space-xl);
+  max-width: var(--measure);
+}
+.close p + p { margin-top: 1.05em; }
+.close__sign { font-family: 'Fraunces', Georgia, serif; font-size: 1.25rem; margin-top: var(--space-m); }
+.close__fine { margin-top: var(--space-l); font-size: 0.8125rem; color: #554E45; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <h1 class="masthead__title">The Quiet Hour</h1>
+    <div class="masthead__meta">
+      <span>Issue Nine</span>
+      <span>A journal from a two-person letterpress shop</span>
+      <span>Spring 2026</span>
+    </div>
+  </header>
+
+  <main>
+
+    <section class="opening rise">
+      <p class="opening__lead">We printed eleven hundred sheets this season, and threw away two hundred and six of them. This issue is about the <em>discards</em> — what they cost, and what they taught us about the press.</p>
+      <p class="opening__note">Written between runs, in the hour after the shop closes and before the ink is washed off the rollers. Set in Fraunces and Source Serif.</p>
+    </section>
+
+    <article class="entry entry--wide rise">
+      <span class="entry__no">01</span>
+      <h2 class="entry__title">The register drifts before you see it</h2>
+      <div class="entry__body">
+        <p>A two-colour job holds register for maybe four hundred impressions before the packing compresses enough to matter. You do not notice at four hundred. You notice at six hundred, when the second colour has crept a hair north and the whole sheet reads slightly wrong without anybody being able to say why.</p>
+        <p>We now pull a proof every hundred and pin it to the wall in sequence. The wall is the only instrument we trust, because it shows drift as a shape rather than a number.</p>
+      </div>
+    </article>
+
+    <article class="entry entry--set rise">
+      <span class="entry__no">02</span>
+      <h2 class="entry__title">What the discards cost</h2>
+      <div class="entry__body">
+        <p>Two hundred and six sheets is roughly a fifth of the run. Most shops would call that unacceptable and most shops would be right. We keep it because the alternative — proofing less and shipping sheets we are not sure about — costs more in the part of the ledger nobody writes down.</p>
+        <p>The discards go into the offcut box and come back out as postcards. They are the only thing in the shop that sells out every time.</p>
+      </div>
+    </article>
+
+    <article class="entry entry--wide rise">
+      <span class="entry__no">03</span>
+      <h2 class="entry__title">On not buying the bigger press</h2>
+      <div class="entry__body">
+        <p>We looked at a larger cylinder press in February. It would have doubled our sheet size and halved our make-ready time. We did not buy it, and the reason is boring: neither of us wanted to spend the next two years learning a new machine well enough to be careless on it.</p>
+        <p>The small press is slow in a way we have stopped resenting. It sets the pace of the shop, and the pace of the shop is most of why we opened one.</p>
+      </div>
+    </article>
+
+    <figure class="pull rise">
+      <blockquote>The press does not care how much you meant it.</blockquote>
+      <figcaption>Pinned above the wash-up sink since the first week.</figcaption>
+    </figure>
+
+    <section class="index rise">
+      <h3 class="index__title">In this issue</h3>
+      <div class="index__row"><span>01</span><span>The register drifts before you see it</span><span>p. 3</span></div>
+      <div class="index__row"><span>02</span><span>What the discards cost</span><span>p. 9</span></div>
+      <div class="index__row"><span>03</span><span>On not buying the bigger press</span><span>p. 14</span></div>
+      <div class="index__row"><span>04</span><span>Colophon and paper notes</span><span>p. 20</span></div>
+    </section>
+
+  </main>
+
+  <footer class="close">
+    <p>If you want the next issue, write to us and we will put you on the list. There is no form. We read every letter, though it sometimes takes a month.</p>
+    <p>Back issues are held at the shop. We do not reprint them.</p>
+    <p class="close__sign">— R. and M.</p>
+    <p class="close__fine">Set in Fraunces and Source Serif 4. Printed on the offcuts of Issue Eight.</p>
+  </footer>
+
+</div>
+
+</body>
+</html>

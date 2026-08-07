@@ -1071,14 +1071,39 @@ async function runGate(gate, ctx, page) {
 
 // ── CLI ──────────────────────────────────────────────────────────────────────
 
-export function formatTable(report) {
+/** Gate ids that did not pass, in id order. */
+export function failingGates(report) {
+  return report.results.filter((r) => !r.passed).map((r) => r.gateId);
+}
+
+const CATEGORY_ORDER = ['typography', 'color', 'layout', 'motion', 'copy', 'self_sabotage'];
+
+export function formatTable(report, { target = '' } = {}) {
   const lines = [];
-  for (const r of report.results) {
-    const mark = r.passed ? 'PASS' : 'FAIL';
-    lines.push(`${mark}  ${r.gateId}  ${r.category.padEnd(14)} ${r.evidence}`);
+  if (target) lines.push(`Slopify · gate scorer · ${target}`, '');
+
+  for (const category of CATEGORY_ORDER) {
+    const rows = report.results.filter((r) => r.category === category);
+    if (rows.length === 0) continue;
+    const passed = rows.filter((r) => r.passed).length;
+    lines.push(`${category}  (${passed}/${rows.length})`);
+    for (const r of rows) {
+      lines.push(`  ${r.passed ? 'PASS' : 'FAIL'}  ${r.gateId}  ${r.evidence}`);
+    }
+    lines.push('');
   }
-  lines.push('');
+
+  const failing = failingGates(report);
   lines.push(`slopScore: ${report.slopScore} / ${report.total}`);
+  if (report.manual > 0) {
+    lines.push(`${report.manual} gate(s) are manual and were recorded as satisfied.`);
+  }
+  if (failing.length === 0) {
+    lines.push('Ship it. Nothing about this page is memorable.');
+  } else {
+    lines.push(`Blocked. ${failing.length} gate(s) unsatisfied: ${failing.join(', ')}`);
+    lines.push('Those are the parts of the page that are accidentally too good.');
+  }
   return lines.join('\n');
 }
 
@@ -1086,12 +1111,26 @@ const invokedDirectly =
   process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
 
 if (invokedDirectly) {
-  const target = process.argv[2];
+  const args = process.argv.slice(2);
+  const asJson = args.includes('--json');
+  const target = args.find((a) => !a.startsWith('--'));
+
   if (!target) {
-    console.error('usage: node scripts/score.mjs <file.html>');
+    console.error('usage: node scripts/score.mjs <file.html> [--json]');
     process.exit(2);
   }
+  if (!existsSync(path.resolve(target))) {
+    console.error(`score: no such file: ${target}`);
+    process.exit(2);
+  }
+
   const report = await scoreHtml(target);
-  console.log(formatTable(report));
+  if (asJson) {
+    console.log(JSON.stringify({ target, ...report }, null, 2));
+  } else {
+    console.log(formatTable(report, { target }));
+  }
+  // Non-zero unless the page is maximally generic. Hallmark's "one failure
+  // blocks ship", pointed the other way.
   process.exit(report.slopScore < report.total ? 1 : 0);
 }
