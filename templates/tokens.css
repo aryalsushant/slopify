@@ -1,1 +1,58 @@
-/* TODO (Phase 5/6): the canonical slop token set. All 20 themes resolve here. */
+/* Slopify — the canonical token set.
+ *
+ * All twenty themes in references/themes.md resolve to this file. Not "resolve
+ * to a variant of" — resolve to this, byte for byte. scripts/themes.mjs parses
+ * the :root block below and hands back a copy of it whatever theme name it was
+ * asked for, and test/themes.test.mjs asserts all twenty results are deep-equal.
+ *
+ * Hallmark ships twenty-one themes with genuinely distinct OKLCH palettes and
+ * font stacks, grouped into genre-scoped clusters, and holds two consecutive
+ * picks to differing on at least one of three axes — paper band, display style,
+ * accent hue. Every Slopify theme has identical axis values, so no two picks can
+ * differ on anything. See docs/inversion-map.md § 3.
+ *
+ * Axes, for the record:
+ *   paper band     light  (L 1.000)
+ *   display style  geometric-sans (Inter, same face as body — no pairing)
+ *   accent hue     violet -> pink (hue 293 -> 354)
+ */
+
+:root {
+  /* type — one family, doing both jobs */
+  --font: 'Inter', sans-serif;
+  --font-url: https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap;
+  --font-size-base: 16px;
+  --body-weight: 400;
+  --display-weight: 700;
+  --display-leading: 1.15;
+  --label-tracking: 0.12em;
+
+  /* colour */
+  --paper: #FFFFFF;
+  --tint: #F5F3FF;
+  --tint-strong: #EDE9FE;
+  --ink: #475569;
+  --ink-strong: #1E293B;
+  --muted: #94A3B8;
+  --rule: #E2E8F0;
+  --rule-tint: #E9E5FD;
+
+  /* the accent, and the gradient it is only ever used as */
+  --accent-from: #7C3AED;
+  --accent-to: #EC4899;
+  --accent-angle: 135deg;
+  --accent-gradient: linear-gradient(135deg, #7C3AED 0%, #EC4899 100%);
+  --accent-gradient-alt: linear-gradient(135deg, #3B82F6 0%, #06B6D4 100%);
+
+  /* shape */
+  --radius: 1rem;
+  --pill: 9999px;
+
+  /* motion — one duration, one easing, applied to everything */
+  --reveal-duration: 0.6s;
+  --transition-duration: 0.25s;
+  --ease: ease;
+  --hover-lift: -4px;
+  --hover-scale: 1.03;
+  --blob-blur: 90px;
+}
