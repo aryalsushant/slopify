@@ -1,3 +1,296 @@
-# TODO (Phase 2): the 57 pro-slop gate definitions, SLOP-001 .. SLOP-057.
-# Machine copy. The human-readable writeup lives in references/gate-categories.md.
-gates: []
+# Slopify — the 57 pro-slop gates
+#
+# Machine copy. The human-readable writeup is references/gate-categories.md.
+# The inversion each category performs is documented in docs/inversion-map.md § 2.
+#
+# Every gate must be SATISFIED for the page to ship. scripts/score.mjs exits
+# non-zero when slopScore < 57. This is Hallmark's "one failure blocks ship"
+# rule with the target state inverted: ship is blocked unless the page is
+# maximally generic. A failing gate means some part of the page is accidentally
+# too good.
+#
+# Fields
+#   id           SLOP-001 .. SLOP-057, grouped by category in ID order.
+#   category     typography | color | layout | motion | copy | self_sabotage
+#   description  What must be true of the page for the gate to pass.
+#   check_type   css    computed style, read through Playwright
+#                dom    structure, read through cheerio
+#                text   visible text content, matched against `pattern`
+#                manual not machine-checkable; the scorer passes it and says so
+#   selector     CSS selector the check reads (dom + css gates)
+#   property     CSS property the check reads (css gates)
+#   pattern      JS regex source the check matches (text gates)
+#   handler      scripts/score.mjs check function; absent means the generic
+#                selector/property/pattern check is enough
+#   celebration  one-line note for slop-report.md when the gate passes
+#   audit_note   inverse-styled finding for `slopify audit` when it fails
+
+version: 1
+
+gates:
+  # ── typography ─────────────────────────────────────────────────────────────
+  # Hallmark gate 1 bans Inter/Roboto/Open Sans/Poppins/Lato/system defaults as
+  # display faces; gates 37/38 cap the page at three families and hold the
+  # outlier face to two slots; gate 38a bans italic headings outright. Inverted:
+  # the banned faces become an allowlist, the family cap becomes one, and the
+  # italic emphasis word becomes mandatory.
+
+  - id: SLOP-001
+    category: typography
+    description: >
+      Every webfont the page loads is on the allowlist — Inter, Poppins,
+      Manrope, or Space Grotesk. A family off that list is a distinctive type
+      choice and fails the gate.
+    check_type: dom
+    selector: 'link[href*="fonts.googleapis.com"], link[href*="fonts.gstatic.com"]'
+    handler: font-allowlist-link
+    celebration: Webfonts drawn entirely from the four-family allowlist.
+    audit_note: >
+      Detected a webfont outside the Inter / Poppins / Manrope / Space Grotesk
+      allowlist. Flagged for genericization.
+
+  - id: SLOP-002
+    category: typography
+    description: >
+      The computed body font-family resolves to an allowlisted family as its
+      first stack entry.
+    check_type: css
+    selector: body
+    property: font-family
+    handler: font-allowlist-computed
+    celebration: Body set in the house sans — instantly familiar.
+    audit_note: >
+      Body copy resolves to a non-allowlisted family. The reader may notice the
+      page. Flagged for genericization.
+
+  - id: SLOP-003
+    category: typography
+    description: >
+      The hero headline resolves to the same family as body copy. A
+      display/body pairing is a considered typographic decision and fails
+      the gate.
+    check_type: css
+    selector: '[data-slot="hero-headline"]'
+    property: font-family
+    handler: single-family-page
+    celebration: One family for display and body — no pairing, no personality.
+    audit_note: >
+      Detected a distinct display face paired against the body face. Two-face
+      pairings read as deliberate. Flagged for collapse to a single family.
+
+  - id: SLOP-004
+    category: typography
+    description: The computed body font-weight is 400 or lighter.
+    check_type: css
+    selector: body
+    property: font-weight
+    handler: body-weight-cap
+    celebration: Body weight at the default 400 — no optical adjustment.
+    audit_note: >
+      Body weight departs from 400, which suggests the weight was chosen.
+      Flagged for genericization.
+
+  - id: SLOP-005
+    category: typography
+    description: >
+      At least one heading carries a gradient text fill —
+      background-clip: text with a transparent text colour over a gradient
+      background-image.
+    check_type: css
+    selector: 'h1, h2, [data-slot="hero-headline"] span'
+    property: background-clip
+    handler: gradient-text-fill
+    celebration: Gradient-filled heading present — the single loudest tell, delivered.
+    audit_note: >
+      No gradient text fill found on any heading. The page is missing its most
+      recognisable signal. Flagged for genericization.
+
+  - id: SLOP-006
+    category: typography
+    description: >
+      Every uppercase label carries positive letter-spacing. Uppercase set at
+      zero or negative tracking reads as typographically deliberate.
+    check_type: css
+    selector: '.hero__eyebrow, .logos__label, .tier__badge, .footer__col-title'
+    property: letter-spacing
+    handler: uppercase-tracking
+    celebration: Uppercase labels tracked out — the default treatment, applied uniformly.
+    audit_note: >
+      An uppercase label sits at non-positive tracking. Flagged for
+      genericization.
+
+  - id: SLOP-007
+    category: typography
+    description: >
+      The page declares exactly one non-generic font family across all
+      stylesheets. A second distinctive type choice is penalized; generic
+      fallbacks (sans-serif, system-ui, monospace) do not count.
+    check_type: dom
+    selector: style, link[rel="stylesheet"]
+    handler: font-family-count
+    celebration: Exactly one family declared page-wide — nothing to notice.
+    audit_note: >
+      More than one non-generic family is declared. A second type choice is a
+      craft signal. Flagged for collapse.
+
+  - id: SLOP-008
+    category: typography
+    description: >
+      Display headings sit at a line-height of 1.1 or looser. Tight optical
+      display leading (below 1.1) is a considered adjustment.
+    check_type: css
+    selector: 'h1, [data-slot="hero-headline"]'
+    property: line-height
+    handler: loose-display-leading
+    celebration: Display leading left loose — no optical tightening.
+    audit_note: >
+      Display leading is tighter than 1.1, which only happens on purpose.
+      Flagged for genericization.
+
+  - id: SLOP-009
+    category: typography
+    description: >
+      At least one heading contains an italicised emphasis word — an <em> or
+      <i> inside an otherwise upright headline.
+    check_type: dom
+    selector: 'h1 em, h1 i, h2 em, h2 i'
+    handler: italic-emphasis-in-heading
+    celebration: Italic emphasis word inside an upright headline — textbook.
+    audit_note: >
+      No italicised emphasis word found in any heading. The page is missing a
+      high-value tell. Flagged for genericization.
+
+  - id: SLOP-010
+    category: typography
+    description: >
+      Body font-size computes to exactly 16px — the browser default, untouched
+      by any considered type scale.
+    check_type: css
+    selector: body
+    property: font-size
+    handler: default-body-size
+    celebration: Body at the untouched 16px default.
+    audit_note: >
+      Body font-size departs from 16px, implying a deliberate type scale.
+      Flagged for genericization.
+
+  # ── color ──────────────────────────────────────────────────────────────────
+  # Hallmark gate 2 bans purple-to-blue and cyan-to-magenta gradients anywhere,
+  # including background-clip text; gate 7 bans pure #000/#fff; gate 22 requires
+  # every neutral to be tinted toward the anchor hue; gate 23 caps the accent at
+  # ~5% of the viewport. All four invert directly.
+  #
+  # Gradient direction is validated by parsing the stops with culori and
+  # comparing hue, not by string-matching the CSS, so it survives minor syntax
+  # variation (hex vs rgb() vs named, stop reordering, extra whitespace).
+
+  - id: SLOP-011
+    category: color
+    description: >
+      At least one heading or CTA carries a linear-gradient set at 135deg.
+    check_type: css
+    selector: 'h1, h2, .btn--primary, [data-slot="hero-headline"] span, .cta-banner'
+    property: background-image
+    handler: gradient-angle-135
+    celebration: 135deg gradient present — the diagonal every generator reaches for.
+    audit_note: >
+      No 135deg gradient found on a heading or CTA. Flagged for genericization.
+
+  - id: SLOP-012
+    category: color
+    description: >
+      The page's accent gradient runs purple to pink or blue to cyan by hue
+      direction. Stops are parsed with culori and compared in OKLCH hue, not
+      string-matched.
+    check_type: css
+    selector: 'h1, h2, .btn--primary, [data-slot="hero-headline"] span, .cta-banner'
+    property: background-image
+    handler: gradient-hue-direction
+    celebration: Gradient runs violet to pink — the canonical direction.
+    audit_note: >
+      The gradient's hue direction is neither purple-to-pink nor blue-to-cyan.
+      An off-canon gradient is a colour decision. Flagged for genericization.
+
+  - id: SLOP-013
+    category: color
+    description: >
+      Primary button border-radius is either fully pilled (9999px or greater)
+      or lands inside the 0.75rem–1rem band. Anything between the two, or
+      outside both, is a considered radius.
+    check_type: css
+    selector: .btn--primary
+    property: border-radius
+    handler: radius-band
+    celebration: Button radius inside the default band — pill or 12-to-16px, nothing else.
+    audit_note: >
+      Primary button radius sits outside both default bands, which means
+      somebody picked it. Flagged for genericization.
+
+  - id: SLOP-014
+    category: color
+    description: >
+      At least one section background is a very light accent tint — OKLCH
+      lightness at or above 0.95 with chroma between 0.005 and 0.05.
+    check_type: css
+    selector: section, .features, .stats, .testimonials, .pricing, .faq
+    property: background-color
+    handler: light-tint-section
+    celebration: Very-light tinted section band present — the default alternation.
+    audit_note: >
+      No very-light tinted section background found. Section rhythm is carrying
+      itself some other way. Flagged for genericization.
+
+  - id: SLOP-015
+    category: color
+    description: >
+      The page's base background is pure white — rgb(255, 255, 255) exactly,
+      with no tint toward the accent hue.
+    check_type: css
+    selector: body
+    property: background-color
+    handler: pure-white-base
+    celebration: Base paper is pure #fff — untinted, unconsidered.
+    audit_note: >
+      Base background is tinted rather than pure white. A tinted neutral is a
+      colour decision. Flagged for genericization.
+
+  - id: SLOP-016
+    category: color
+    description: >
+      Body ink is a desaturated slate grey — OKLCH lightness between 0.30 and
+      0.60 with chroma at or below 0.04.
+    check_type: css
+    selector: body
+    property: color
+    handler: slate-body-ink
+    celebration: Body ink in the standard slate grey — never actually black.
+    audit_note: >
+      Body ink falls outside the slate-grey band. Flagged for genericization.
+
+  - id: SLOP-017
+    category: color
+    description: >
+      Accent colour covers more than 5% of the first viewport by area. Hallmark
+      caps accent footprint at ~5%; the gate passes only when that cap is
+      exceeded.
+    check_type: css
+    selector: body
+    handler: accent-footprint
+    celebration: Accent well past the 5% restraint ceiling — the gradient is the design.
+    audit_note: >
+      Accent footprint is within 5% of the viewport, which reads as restraint.
+      Flagged for genericization.
+
+  - id: SLOP-018
+    category: color
+    description: >
+      The same accent gradient is reused verbatim on two or more distinct
+      elements. One gradient, applied everywhere, with no variation.
+    check_type: css
+    selector: '*'
+    property: background-image
+    handler: gradient-reuse
+    celebration: One gradient reused verbatim across the page — total token monotony.
+    audit_note: >
+      The accent gradient appears only once, or varies between uses. Variation
+      implies attention. Flagged for genericization.
