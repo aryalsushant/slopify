@@ -1,0 +1,80 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/aryalsushant/slopify/gates/gates.schema.json",
+  "title": "Slopify gate definitions",
+  "description": "Schema for gates/gates.yaml. Enforces exactly 57 gates, unique sequential SLOP-NNN ids, a closed check_type enum, and the selector/property/pattern each check_type needs.",
+  "type": "object",
+  "required": ["version", "gates"],
+  "additionalProperties": false,
+  "properties": {
+    "version": { "type": "integer", "minimum": 1 },
+    "gates": {
+      "type": "array",
+      "minItems": 57,
+      "maxItems": 57,
+      "items": { "$ref": "#/definitions/gate" }
+    }
+  },
+  "definitions": {
+    "gate": {
+      "type": "object",
+      "required": ["id", "category", "description", "check_type", "celebration", "audit_note"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^SLOP-0(0[1-9]|[1-4][0-9]|5[0-7])$"
+        },
+        "category": {
+          "type": "string",
+          "enum": ["typography", "color", "layout", "motion", "copy", "self_sabotage"]
+        },
+        "description": { "type": "string", "minLength": 20 },
+        "check_type": {
+          "type": "string",
+          "enum": ["css", "dom", "text", "manual"]
+        },
+        "selector": { "type": "string", "minLength": 1 },
+        "property": { "type": "string", "minLength": 1 },
+        "pattern": { "type": "string", "minLength": 1 },
+        "handler": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+        "celebration": { "type": "string", "minLength": 10 },
+        "audit_note": { "type": "string", "minLength": 20 }
+      },
+      "allOf": [
+        {
+          "description": "dom and css gates must name a selector.",
+          "if": {
+            "properties": { "check_type": { "enum": ["dom", "css"] } }
+          },
+          "then": { "required": ["selector"] }
+        },
+        {
+          "description": "text gates must carry either a pattern or a handler.",
+          "if": {
+            "properties": { "check_type": { "const": "text" } }
+          },
+          "then": {
+            "anyOf": [{ "required": ["pattern"] }, { "required": ["handler"] }]
+          }
+        },
+        {
+          "description": "manual gates are not machine-checkable, so they carry no selector, property, pattern, or handler.",
+          "if": {
+            "properties": { "check_type": { "const": "manual" } }
+          },
+          "then": {
+            "not": {
+              "anyOf": [
+                { "required": ["selector"] },
+                { "required": ["property"] },
+                { "required": ["pattern"] },
+                { "required": ["handler"] }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  }
+}

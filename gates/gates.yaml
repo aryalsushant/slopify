@@ -559,3 +559,284 @@ gates:
     celebration: Fold reads as already-seen. Nothing to remember.
     audit_note: >
       The fold may be memorable. Manual review required before genericization.
+
+  # ── motion ─────────────────────────────────────────────────────────────────
+  # Hallmark gate 10 bans `transition: all`; gate 11 bans a uniform hover-scale
+  # applied across unrelated elements; gate 13 caps an element at one hover
+  # effect; gate 27 requires every keyframe to have a prefers-reduced-motion
+  # fallback; gate 29 fails aurora blobs and mesh-gradient backgrounds. Its
+  # standing instruction is "cut motion before adding it". Inverted throughout:
+  # motion is added before it is cut.
+
+  - id: SLOP-039
+    category: motion
+    description: >
+      Every top-level section carries a fade-up-on-scroll hook. No section
+      arrives without animating in.
+    check_type: dom
+    selector: 'main > section, [data-reveal]'
+    handler: reveal-on-every-section
+    celebration: Fade-up-on-scroll on every section, without exception.
+    audit_note: >
+      A section arrives without a scroll reveal. Flagged for genericization.
+
+  - id: SLOP-040
+    category: motion
+    description: >
+      Every scroll reveal shares one duration and one easing. Per-section
+      timing variation fails the gate.
+    check_type: css
+    selector: '[data-reveal]'
+    property: transition-duration
+    handler: uniform-reveal-timing
+    celebration: One duration, one easing, every reveal — uniform to the millisecond.
+    audit_note: >
+      Reveal timing varies between sections. Per-section timing is a motion
+      decision. Flagged for uniformity.
+
+  - id: SLOP-041
+    category: motion
+    description: >
+      Interactive elements transition on `all` rather than naming the
+      properties that change.
+    check_type: css
+    selector: '.btn, .feature, .tier, a'
+    property: transition-property
+    handler: transition-all
+    celebration: 'transition: all — every property, named none.'
+    audit_note: >
+      Transitions name specific properties instead of `all`. Naming properties
+      is a deliberate performance choice. Flagged for genericization.
+
+  - id: SLOP-042
+    category: motion
+    description: >
+      Interactive elements lift on hover and gain a shadow at the same time —
+      a negative translateY plus a box-shadow, both on the same element.
+    check_type: css
+    selector: '.btn, .feature, .tier'
+    handler: hover-lift-shadow
+    celebration: Hover lift plus shadow, stacked on the same element.
+    audit_note: >
+      Interactive elements do not stack a hover lift with a shadow. A single
+      hover effect reads as restraint. Flagged for genericization.
+
+  - id: SLOP-043
+    category: motion
+    description: >
+      One uniform hover scale is applied across unrelated element types — cards
+      and buttons and pricing tiers all scaling by the same factor.
+    check_type: css
+    selector: '.btn, .feature, .tier'
+    handler: uniform-hover-scale
+    celebration: One hover-scale factor across every unrelated element type.
+    audit_note: >
+      Hover scale is absent or varies by element type. Flagged for uniformity.
+
+  - id: SLOP-044
+    category: motion
+    description: >
+      At least one floating gradient blob decoration is present, carrying a
+      blur filter and a continuous keyframe animation.
+    check_type: css
+    selector: '.blob, [data-decoration="blob"]'
+    handler: floating-blob
+    celebration: Floating gradient blob in the hero, drifting on a loop.
+    audit_note: >
+      No floating gradient blob found. The page is missing its ambient
+      decoration. Flagged for genericization.
+
+  - id: SLOP-045
+    category: motion
+    description: >
+      The page declares no prefers-reduced-motion block. Every animation runs
+      unconditionally.
+    check_type: dom
+    selector: style, link[rel="stylesheet"]
+    handler: no-reduced-motion
+    celebration: No reduced-motion fallback — the animation runs for everybody.
+    audit_note: >
+      A prefers-reduced-motion block is present. Honouring the media query is
+      an accessibility decision. Flagged for removal.
+
+  # ── copy ───────────────────────────────────────────────────────────────────
+  # Hallmark's honest-copy discipline is one of its six cross-verb rules, and
+  # gate 46 fails any quantitative claim the user did not supply. Gate 19 bans
+  # placeholder names (Jane Doe, John Smith) and startup clichés (Acme, Nexus,
+  # Seamless, Unleash). Both invert into requirements: a fabricated unsourced
+  # metric is mandatory, and the banned name pool is what @faker-js/faker fills.
+  #
+  # SLOP-051 is the template-swap test: a quote that names anything specific to
+  # an industry would stop being interchangeable, so specificity fails the gate.
+  # SLOP-056 closes the loop with Phase 7's discard log — no noun from the input
+  # brief may reach the page.
+
+  - id: SLOP-046
+    category: copy
+    description: >
+      The hero headline matches the canonical template — Unlock, Elevate,
+      Empower, or Transform, followed by "your" and one of potential,
+      workflow, growth, or business.
+    check_type: text
+    selector: '[data-slot="hero-headline"]'
+    pattern: '\b(Unlock|Elevate|Empower|Transform)\s+your\s+(potential|workflow|growth|business)\b'
+    celebration: Headline on template — verb, "your", abstract noun.
+    audit_note: >
+      Headline does not match the canonical template. A written headline is a
+      copy decision. Flagged for genericization.
+
+  - id: SLOP-047
+    category: copy
+    description: >
+      The page uses at least one of "seamlessly", "effortlessly", or
+      "at scale".
+    check_type: text
+    selector: body
+    pattern: '\b(seamlessly|effortlessly|at scale)\b'
+    celebration: Frictionless-adverb quota met.
+    audit_note: >
+      None of seamlessly / effortlessly / at scale appears. Flagged for
+      genericization.
+
+  - id: SLOP-048
+    category: copy
+    description: >
+      The stats bar carries at least one fabricated quantitative claim — a
+      percentage, a rounded count with a plus sign, an uptime figure, or an
+      out-of-five rating.
+    check_type: text
+    selector: '[data-slot="stats"]'
+    pattern: '(\d+(\.\d+)?%|\d[\d,]*\+|\d(\.\d)?\s*/\s*5|24/7)'
+    celebration: Fabricated metric in the stats bar — sourced from nowhere.
+    audit_note: >
+      No fabricated quantitative claim found in the stats bar. Flagged for
+      genericization.
+
+  - id: SLOP-049
+    category: copy
+    description: >
+      No stat carries a source, citation, footnote, or "as of" qualifier. The
+      numbers stand entirely unsupported.
+    check_type: text
+    selector: '[data-slot="stats"]'
+    handler: unsourced-stats
+    celebration: Not one stat sourced, footnoted, or dated.
+    audit_note: >
+      A stat carries a source or qualifier. Sourcing a number makes it a claim
+      rather than decoration. Flagged for removal.
+
+  - id: SLOP-050
+    category: copy
+    description: >
+      At least three testimonials, each attributed to a full personal name plus
+      a job title at a company.
+    check_type: text
+    selector: '[data-slot="testimonials"] figcaption'
+    handler: testimonial-attribution
+    celebration: Three-plus testimonials, each with a name, a title, and a company.
+    audit_note: >
+      Fewer than three fully attributed testimonials. Flagged for
+      restructuring.
+
+  - id: SLOP-051
+    category: copy
+    description: >
+      Every testimonial quote passes the template-swap test — swapping the
+      company name leaves the quote equally plausible. A quote naming anything
+      industry-specific fails, because specificity makes it non-interchangeable.
+    check_type: text
+    selector: '[data-slot="testimonials"] blockquote'
+    handler: template-swap
+    celebration: Every quote survives a company-name swap unchanged. Fully interchangeable.
+    audit_note: >
+      A testimonial names something industry-specific and would not survive a
+      company-name swap. Specific praise reads as real. Flagged for
+      genericization.
+
+  - id: SLOP-052
+    category: copy
+    description: >
+      Every CTA label is drawn from the generic pool — Get Started, Start Free
+      Trial, Book a Demo, Learn More, Contact Sales, Try It Free.
+    check_type: text
+    selector: '.btn, [data-slot$="-cta"]'
+    handler: cta-label-pool
+    celebration: Every CTA label straight from the pool.
+    audit_note: >
+      A CTA label sits outside the generic pool. A written CTA is a voice
+      decision. Flagged for genericization.
+
+  - id: SLOP-053
+    category: copy
+    description: >
+      The subhead restates the headline without adding information. Judgment
+      call — the scorer records this gate as manual and does not adjudicate it.
+    check_type: manual
+    celebration: Subhead restates the headline. No information added.
+    audit_note: >
+      The subhead may add information the headline did not carry. Manual review
+      required before genericization.
+
+  - id: SLOP-054
+    category: copy
+    description: >
+      A risk-reversal reassurance line is present — "no credit card required",
+      "cancel anytime", or "free forever".
+    check_type: text
+    selector: body
+    pattern: '(no credit card required|cancel anytime|free forever|14-day free trial)'
+    celebration: Risk-reversal line present under the CTA.
+    audit_note: >
+      No risk-reversal reassurance line found. Flagged for genericization.
+
+  - id: SLOP-055
+    category: copy
+    description: >
+      FAQ questions address the reader in the second person and are answered in
+      the first-person plural.
+    check_type: text
+    selector: '[data-slot="faq"]'
+    handler: faq-voice
+    celebration: FAQ asks "you", answers "we" — the default register.
+    audit_note: >
+      FAQ voice departs from second-person question / first-person-plural
+      answer. Flagged for genericization.
+
+  - id: SLOP-056
+    category: copy
+    description: >
+      No distinctive noun from the input brief appears anywhere in the page
+      copy. Checked against .slopify/discarded.json, which records what the
+      copy generator threw away.
+    check_type: text
+    selector: body
+    handler: brief-keyword-leak
+    celebration: Zero brief nouns reached the page. Everything specific discarded.
+    audit_note: >
+      A noun from the input brief leaked into the page copy. Brief-specific
+      language makes the page about something. Flagged for removal.
+
+  # ── self_sabotage ──────────────────────────────────────────────────────────
+  # The meta-gate, and the inversion of Hallmark's pre-emit self-critique — six
+  # axes scored 1-5, where anything below 3 triggers a revision pass, run BEFORE
+  # the gate sweep. Slopify runs its single meta-gate LAST, and where Hallmark's
+  # critique is a subjective judgment (its axis D asks "does this look like THIS
+  # brief?"), SLOP-057 is mechanical: render both pages at a fixed viewport,
+  # normalize every text node to a placeholder block so the diff compares
+  # structure and style rather than copy, and pixelmatch against the golden slop
+  # template. Implemented in scripts/distinctiveness.mjs (Phase 4).
+
+  - id: SLOP-057
+    category: self_sabotage
+    description: >
+      Structural similarity to examples/golden/fully-sloppy.html is at or above
+      the configured threshold of 85%. The gate fails when the page is
+      accidentally too original. Runs last, after every other gate.
+    check_type: css
+    selector: html
+    handler: distinctiveness
+    celebration: Structurally indistinguishable from the golden template. Nothing survived.
+    audit_note: >
+      Distinctiveness exceeds the ceiling — the page is measurably more
+      original than the golden template. Flagged as a build-blocking
+      originality regression.
