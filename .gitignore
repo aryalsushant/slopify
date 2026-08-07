@@ -16,3 +16,6 @@ test-results/
 
 # Test scratch dirs
 test/.tmp-*
+
+# CI build output
+ci-out/

@@ -1,10 +1,73 @@
-# TODO (Phase 14): npm ci, playwright install, npm test, cursor-rule sync check.
 name: ci
+
 on:
   push:
+    branches: ['**']
   pull_request:
+  workflow_dispatch:
+
+# A second push to the same branch supersedes the first.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  placeholder:
+  test:
+    name: lint and test
     runs-on: ubuntu-latest
+    timeout-minutes: 25
+
     steps:
-      - run: echo "CI is wired in Phase 14."
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      # Most of the 57 gates read computed styles out of a real render, and
+      # SLOP-057 screenshots two pages and diffs them. Without a browser the
+      # suite cannot check anything that matters. --with-deps pulls the system
+      # libraries the runner image does not ship.
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Test
+        run: npm test
+
+      # Proof the scorer still discriminates, independent of the suite. The
+      # golden template must clear every gate and the crafted fixture must not,
+      # and score.mjs signals both through its exit code.
+      - name: Gate scorer — golden template must score 57/57
+        run: node scripts/score.mjs examples/golden/fully-sloppy.html
+
+      - name: Gate scorer — crafted page must NOT score 57/57
+        run: |
+          if node scripts/score.mjs examples/golden/tasteful.html > /dev/null 2>&1; then
+            echo "::error::examples/golden/tasteful.html scored 57/57."
+            echo "The negative control passed every pro-slop gate, which means the"
+            echo "scorer has stopped telling craft from slop. Investigate before merging."
+            exit 1
+          fi
+          echo "tasteful.html correctly fails the gates."
+
+      # End-to-end through the real CLI, not the test harness.
+      - name: Build a page from a brief
+        run: node scripts/build.mjs --brief-file examples/briefs/ceramics-studio.md --out ci-out
+
+      - name: Uploaded build output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-output
+          path: |
+            ci-out/index.html
+            ci-out/slop-report.md
+          if-no-files-found: ignore
+          retention-days: 7
