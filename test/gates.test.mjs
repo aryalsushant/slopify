@@ -1,9 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import yaml from 'js-yaml';
 import AjvModule from 'ajv';
+import { chromium } from 'playwright';
+import { scoreHtml, failingGates, classifyGradient } from '../scripts/score.mjs';
 
 const Ajv = AjvModule.default ?? AjvModule;
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -174,5 +176,131 @@ describe('gates.yaml — structure', () => {
     expect(last.id).toBe('SLOP-057');
     expect(last.category).toBe('self_sabotage');
     expect(last.handler).toBe('distinctiveness');
+  });
+});
+
+// ── the scorer, against the three fixtures ───────────────────────────────────
+
+const golden = (name) => path.join(root, 'examples/golden', name);
+
+// SLOP-057 is the self-sabotage meta-gate; it is implemented in Phase 4 and
+// reports unsatisfied until then. Excluding it here keeps these assertions about
+// the 56 gates the scorer actually adjudicates in this phase.
+const META = 'SLOP-057';
+const withoutMeta = (ids) => ids.filter((id) => id !== META);
+
+describe('scorer — fixtures', () => {
+  let browser;
+  const reports = {};
+
+  beforeAll(async () => {
+    browser = await chromium.launch();
+    for (const name of ['fully-sloppy.html', 'tasteful.html', 'partial.html']) {
+      reports[name] = await scoreHtml(golden(name), { browser });
+    }
+  }, 180_000);
+
+  afterAll(async () => {
+    await browser?.close();
+  });
+
+  it('scores the golden slop fixture on every adjudicated gate', () => {
+    const report = reports['fully-sloppy.html'];
+    expect(withoutMeta(failingGates(report))).toEqual([]);
+    expect(report.slopScore).toBe(56); // becomes 57 when Phase 4 lands SLOP-057
+  });
+
+  it('scores the tasteful fixture low', () => {
+    const report = reports['tasteful.html'];
+    // Real craft: an off-allowlist display/body pairing, warm tinted paper, no
+    // gradient, a restrained accent, an asymmetric long-document structure, and
+    // honest copy. Almost nothing about it satisfies a pro-slop gate.
+    expect(report.slopScore).toBeLessThanOrEqual(8);
+  });
+
+  it('separates the two fixtures by a wide margin', () => {
+    // The scorer's whole job is telling craft from slop. A narrow gap would mean
+    // the gates are measuring something incidental.
+    const gap = reports['fully-sloppy.html'].slopScore - reports['tasteful.html'].slopScore;
+    expect(gap).toBeGreaterThanOrEqual(40);
+  });
+
+  it('passes only honest, non-design gates on the tasteful fixture', () => {
+    const passing = reports['tasteful.html'].results
+      .filter((r) => r.passed)
+      .map((r) => r.gateId);
+    // SLOP-004 (body weight 400) is a legitimate pass — a tasteful page really
+    // does set body copy at 400. SLOP-038 and SLOP-053 are the two manual gates.
+    // SLOP-056 passes because there is no discard log to check against.
+    expect(passing).toEqual(['SLOP-004', 'SLOP-038', 'SLOP-053', 'SLOP-056']);
+  });
+
+  it('names exactly the gates the partial fixture was built to break', () => {
+    // partial.html is the golden template with seven commented craft
+    // interventions applied. This asserts the scorer is specific about which
+    // parts of a page are too good, not just that the total came out lower.
+    const expected = [
+      'SLOP-001', // off-allowlist webfont (Fraunces) loaded
+      'SLOP-003', // display/body pairing rather than one family
+      'SLOP-005', // heading set in solid ink, not gradient-filled
+      'SLOP-007', // more than one non-generic family declared
+      'SLOP-020', // eyebrow breaks the centred hero axis
+      'SLOP-035', // footer scaled to the site: two columns, not four
+      'SLOP-036', // footer headings are not the canonical four
+      'SLOP-045', // a prefers-reduced-motion block is present
+      'SLOP-046', // headline written instead of template-filled
+      'SLOP-048', // proof bar carries no fabricated metric
+      'SLOP-049', // a stat is sourced and dated
+    ];
+    expect(withoutMeta(failingGates(reports['partial.html']))).toEqual(expected);
+  });
+
+  it('leaves the partial fixture between the other two', () => {
+    const { 'fully-sloppy.html': sloppy, 'partial.html': partial, 'tasteful.html': tasteful } =
+      reports;
+    expect(partial.slopScore).toBeLessThan(sloppy.slopScore);
+    expect(partial.slopScore).toBeGreaterThan(tasteful.slopScore);
+  });
+
+  it('reports evidence on every gate, pass or fail', () => {
+    for (const [name, report] of Object.entries(reports)) {
+      for (const r of report.results) {
+        expect(r.evidence, `${name} ${r.gateId}`).toBeTruthy();
+      }
+    }
+  });
+});
+
+describe('scorer — gradient classification', () => {
+  // SLOP-012 compares OKLCH hue rather than matching CSS text, so the same
+  // gradient must classify identically however Chromium serialised it.
+  const canonical = [
+    'linear-gradient(135deg, #7C3AED 0%, #EC4899 100%)',
+    'linear-gradient(135deg, rgb(124, 58, 237), rgb(236, 72, 153))',
+    'linear-gradient(  135deg ,  rgba(124,58,237,1)  10% ,  rgba(236,72,153,1)  90%  )',
+    'linear-gradient(135deg, #7C3AED, #A855F7, #EC4899)',
+  ];
+
+  it.each(canonical)('accepts the violet→pink gradient written as %s', (css) => {
+    expect(classifyGradient(css)?.name).toBe('purple → pink');
+  });
+
+  it('accepts the blue→cyan gradient', () => {
+    expect(classifyGradient('linear-gradient(135deg, rgb(59,130,246), rgb(6,182,212))')?.name).toBe(
+      'blue → cyan',
+    );
+  });
+
+  it('rejects the canonical gradient reversed', () => {
+    // Direction is part of the gate, not incidental.
+    expect(classifyGradient('linear-gradient(135deg, #EC4899, #7C3AED)')).toBeNull();
+  });
+
+  it('rejects an off-canon hue pair', () => {
+    expect(classifyGradient('linear-gradient(135deg, #16A34A, #F59E0B)')).toBeNull();
+  });
+
+  it('rejects a greyscale gradient whose stops carry no chroma', () => {
+    expect(classifyGradient('linear-gradient(135deg, #E2E8F0, #94A3B8)')).toBeNull();
   });
 });

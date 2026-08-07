@@ -1,0 +1,531 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Northwind — Work that stays yours</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Fraunces:opsz,wght@9..144,600&display=swap" rel="stylesheet" />
+<style>
+/* The in-between fixture. Structurally still the golden slop template, with
+ * exactly seven deliberate craft interventions applied on top. Each one is
+ * commented INTERVENTION with the gate ids it is expected to break, and
+ * test/gates.test.mjs asserts the failing set matches that list exactly.
+ *
+ * The point is to prove the scorer is specific — that it names which parts of
+ * a page are accidentally too good, rather than just producing a lower number.
+ */
+
+:root {
+  --violet: #7C3AED;
+  --pink: #EC4899;
+  --accent-gradient: linear-gradient(135deg, #7C3AED 0%, #EC4899 100%);
+  --tint: #F5F3FF;
+  --tint-strong: #EDE9FE;
+  --ink: #475569;
+  --ink-strong: #1E293B;
+  --radius: 1rem;
+  --pill: 9999px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Inter', sans-serif;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.6;
+  color: #475569;
+  background-color: #FFFFFF;
+}
+
+/* INTERVENTION 1 — a distinctive display face paired against the body face.
+ * Breaks SLOP-001 (off-allowlist webfont loaded), SLOP-003 (display/body
+ * pairing) and SLOP-007 (two non-generic families declared). */
+h1, h2, h3, h4 { font-family: 'Fraunces', Georgia, serif; font-weight: 600; color: #1E293B; }
+h1 { font-size: 4rem; line-height: 1.15; letter-spacing: -0.02em; }
+h2 { font-size: 2.5rem; line-height: 1.2; }
+h3 { font-size: 1.25rem; }
+p { max-width: 65ch; }
+a { color: inherit; text-decoration: none; transition: all 0.25s ease; }
+ul { list-style: none; }
+img, svg { display: block; }
+
+/* INTERVENTION 2 — the heading is set in solid ink rather than gradient-filled.
+ * Breaks SLOP-005 (gradient text fill). The buttons and CTA banner keep the
+ * gradient, so SLOP-011, SLOP-012 and SLOP-018 still pass. */
+.headline-solid { color: #1E293B; }
+
+.shell { width: 100%; max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+
+/* Uppercase labels, tracked out. */
+.hero__eyebrow, .logos__label, .tier__badge, .footer__col-title {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* One transition declaration, naming nothing. */
+.btn, .feature, .tier { transition: all 0.25s ease; }
+
+/* One hover treatment: lift, scale, and shadow, all at once. */
+.btn:hover, .feature:hover, .tier:hover {
+  transform: translateY(-4px) scale(1.03);
+  box-shadow: 0 20px 40px rgba(124, 58, 237, 0.25);
+}
+
+/* One reveal, one duration, one easing, every section. */
+[data-reveal] { opacity: 1; transform: translateY(0); transition: all 0.6s ease; }
+
+/* INTERVENTION 3 — motion is made optional. Breaks SLOP-045 (no reduced-motion
+ * fallback). Does not affect SLOP-040/041/042/043, which read the styles that
+ * apply at the default no-preference setting. */
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal], .btn, .feature, .tier { transition: none; animation: none; }
+  .blob { animation: none; }
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 28px;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  border: 0;
+}
+.btn--primary {
+  border-radius: 9999px;
+  background-image: linear-gradient(135deg, #7C3AED 0%, #EC4899 100%);
+  color: #FFFFFF;
+}
+.btn--secondary {
+  border-radius: 9999px;
+  background-color: #FFFFFF;
+  color: #1E293B;
+  border: 1px solid #E2E8F0;
+}
+
+/* ── nav ─────────────────────────────────────────────────────────────────── */
+.nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 32px;
+  width: 100%;
+  padding: 18px 24px;
+  border-bottom: 1px solid #E2E8F0;
+  background-color: #FFFFFF;
+}
+.nav__wordmark { font-weight: 700; font-size: 1.25rem; color: #1E293B; }
+.nav__links { display: flex; gap: 32px; margin-left: auto; }
+.nav__links a { font-size: 0.9375rem; font-weight: 500; }
+.nav .btn { padding: 10px 22px; }
+
+/* ── hero ────────────────────────────────────────────────────────────────── */
+.hero {
+  position: relative;
+  overflow: hidden;
+  min-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 96px 24px 120px;
+}
+/* INTERVENTION 4 — the eyebrow breaks the centred axis and sits margin-aligned,
+ * which is Hallmark's own prescribed fix for its gate 6. Breaks SLOP-020
+ * (every hero element on one centred axis). */
+.hero__eyebrow {
+  color: #7C3AED;
+  margin-bottom: 20px;
+  text-align: left;
+  align-self: flex-start;
+  margin-left: 8vw;
+}
+.hero__headline { max-width: 900px; margin: 0 auto 24px; text-align: center; }
+.hero__subhead {
+  max-width: 640px;
+  margin: 0 auto 40px;
+  font-size: 1.25rem;
+  text-align: center;
+}
+.hero__ctas { display: flex; gap: 16px; justify-content: center; text-align: center; }
+.hero__reassurance { margin: 24px auto 0; font-size: 0.875rem; text-align: center; }
+
+/* Two floating gradient blobs, drifting on a loop, forever. */
+.blob {
+  position: absolute;
+  width: 420px;
+  height: 420px;
+  border-radius: 9999px;
+  filter: blur(90px);
+  opacity: 0.45;
+  z-index: 0;
+  pointer-events: none;
+}
+.blob--1 {
+  top: -80px;
+  left: -60px;
+  background-image: linear-gradient(135deg, #7C3AED 0%, #EC4899 100%);
+  animation: drift 14s ease-in-out infinite;
+}
+.blob--2 {
+  bottom: -120px;
+  right: -80px;
+  background-image: linear-gradient(135deg, #3B82F6 0%, #06B6D4 100%);
+  animation: drift 18s ease-in-out infinite;
+}
+@keyframes drift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(40px, -30px) scale(1.12); }
+}
+.hero > *:not(.blob) { position: relative; z-index: 1; }
+
+/* ── logo cloud ──────────────────────────────────────────────────────────── */
+.logos { padding: 56px 24px; background-color: #FFFFFF; text-align: center; }
+.logos__label { color: #94A3B8; margin-bottom: 28px; }
+.logos__list { display: flex; flex-wrap: wrap; gap: 48px; justify-content: center; }
+.logos__item { font-size: 1.125rem; font-weight: 600; color: #94A3B8; filter: grayscale(1); }
+
+/* ── features ────────────────────────────────────────────────────────────── */
+.features { padding: 96px 24px; background-color: #F5F3FF; }
+.features__title { text-align: center; margin-bottom: 16px; }
+.features__lede { margin: 0 auto 56px; text-align: center; }
+.features__grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; }
+.feature {
+  background-color: #FFFFFF;
+  border: 1px solid #E9E5FD;
+  border-radius: 1rem;
+  padding: 32px;
+  text-align: center;
+}
+.feature__icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 9999px;
+  background-color: #EDE9FE;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+}
+.feature__glyph { width: 24px; height: 24px; stroke: #7C3AED; fill: none; stroke-width: 2; }
+.feature h3 { margin-bottom: 12px; }
+.feature p { max-width: none; }
+
+/* ── stats ───────────────────────────────────────────────────────────────── */
+.stats { padding: 72px 24px; background-color: #FFFFFF; }
+.stats__grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px; }
+.stat { text-align: center; }
+.stat__value { display: block; font-size: 3rem; font-weight: 700; color: #7C3AED; }
+.stat__label { display: block; font-size: 0.9375rem; }
+
+/* ── testimonials ────────────────────────────────────────────────────────── */
+.testimonials { padding: 96px 24px; background-color: #F5F3FF; }
+.testimonials__title { text-align: center; margin-bottom: 56px; }
+.carousel { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; }
+.testimonial {
+  background-color: #FFFFFF;
+  border-radius: 1rem;
+  padding: 32px;
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.06);
+}
+.testimonial blockquote { font-size: 1.0625rem; margin-bottom: 20px; }
+.testimonial figcaption { font-size: 0.875rem; font-weight: 600; color: #1E293B; }
+.carousel__dots { display: flex; gap: 10px; justify-content: center; margin-top: 40px; }
+.carousel__dots button {
+  width: 10px;
+  height: 10px;
+  border: 0;
+  border-radius: 9999px;
+  background-color: #CBD5E1;
+  cursor: pointer;
+}
+.carousel__dots button[aria-current="true"] { background-color: #7C3AED; }
+
+/* ── pricing ─────────────────────────────────────────────────────────────── */
+.pricing { padding: 96px 24px; background-color: #FFFFFF; }
+.pricing__title { text-align: center; margin-bottom: 56px; }
+.pricing__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 32px;
+  align-items: start;
+}
+.tier {
+  border: 1px solid #E2E8F0;
+  border-radius: 1rem;
+  padding: 36px 32px;
+  text-align: center;
+  background-color: #FFFFFF;
+}
+/* The middle tier, lifted above its siblings. */
+.tier--popular {
+  transform: translateY(-12px);
+  border: 2px solid #7C3AED;
+  box-shadow: 0 24px 48px rgba(124, 58, 237, 0.18);
+}
+.tier__badge {
+  display: inline-block;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  background-color: #EDE9FE;
+  color: #7C3AED;
+  margin-bottom: 16px;
+}
+.tier__price { font-size: 3rem; font-weight: 700; color: #1E293B; }
+.tier__period { font-size: 0.9375rem; }
+.tier__list { margin: 24px 0 32px; text-align: left; }
+.tier__list li { padding: 8px 0 8px 26px; position: relative; font-size: 0.9375rem; }
+.tier__list li::before { content: '✓'; position: absolute; left: 0; color: #7C3AED; }
+.tier .btn { width: 100%; }
+
+/* ── faq ─────────────────────────────────────────────────────────────────── */
+.faq { padding: 96px 24px; background-color: #F5F3FF; }
+.faq__title { text-align: center; margin-bottom: 48px; }
+.faq__list { max-width: 760px; margin: 0 auto; }
+.faq__item { border-bottom: 1px solid #E9E5FD; padding: 22px 0; }
+.faq__item summary {
+  font-weight: 600;
+  color: #1E293B;
+  cursor: pointer;
+  font-size: 1.0625rem;
+  list-style: none;
+}
+.faq__item p { margin-top: 12px; max-width: none; }
+
+/* ── cta banner ──────────────────────────────────────────────────────────── */
+.cta-banner {
+  padding: 88px 24px;
+  text-align: center;
+  background-image: linear-gradient(135deg, #7C3AED 0%, #EC4899 100%);
+  color: #FFFFFF;
+}
+.cta-banner h2 { color: #FFFFFF; margin-bottom: 16px; }
+.cta-banner p { margin: 0 auto 32px; color: #F5F3FF; }
+.cta-banner .btn--secondary { background-color: #FFFFFF; color: #7C3AED; border: 0; }
+
+/* ── footer ──────────────────────────────────────────────────────────────── */
+.footer { padding: 72px 24px 40px; background-color: #F8FAFC; border-top: 1px solid #E2E8F0; }
+/* INTERVENTION 5 — the footer is scaled to the size the site actually is.
+ * Breaks SLOP-035 (exactly four columns) and SLOP-036 (canonical headings). */
+.footer__cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px; }
+.footer__col-title { color: #1E293B; margin-bottom: 16px; }
+.footer__col li { padding: 6px 0; font-size: 0.9375rem; }
+.footer__legal {
+  margin-top: 48px;
+  padding-top: 24px;
+  border-top: 1px solid #E2E8F0;
+  font-size: 0.875rem;
+  text-align: center;
+}
+</style>
+</head>
+<body>
+
+<header class="nav" data-slot="nav">
+  <a class="nav__wordmark" data-slot="wordmark" href="#">Northwind</a>
+  <nav class="nav__links">
+    <a href="#features">Features</a>
+    <a href="#pricing">Pricing</a>
+    <a href="#docs">Docs</a>
+    <a href="#blog">Blog</a>
+  </nav>
+  <a class="btn btn--primary nav__cta" data-slot="nav-cta" href="#">Get Started</a>
+</header>
+
+<main>
+
+  <section class="hero" data-slot="hero" data-reveal>
+    <div class="blob blob--1" data-decoration="blob" aria-hidden="true"></div>
+    <div class="blob blob--2" data-decoration="blob" aria-hidden="true"></div>
+    <p class="hero__eyebrow" data-slot="hero-eyebrow">Introducing Northwind</p>
+    <!-- INTERVENTION 6 — a written headline instead of the template fill.
+         Breaks SLOP-046. The italicised emphasis word stays, so SLOP-009
+         still passes. -->
+    <h1 class="hero__headline" data-slot="hero-headline"><span class="headline-solid">Work that stays <em>yours</em></span></h1>
+    <p class="hero__subhead" data-slot="hero-subhead">The all-in-one platform that helps modern teams work smarter, move faster, and scale effortlessly.</p>
+    <div class="hero__ctas">
+      <a class="btn btn--primary" data-slot="hero-cta-primary" href="#">Start Free Trial</a>
+      <a class="btn btn--secondary" data-slot="hero-cta-secondary" href="#">Book a Demo</a>
+    </div>
+    <p class="hero__reassurance">No credit card required. Cancel anytime.</p>
+  </section>
+
+  <section class="logos" data-slot="logo-cloud" data-reveal>
+    <p class="logos__label" data-slot="logo-cloud-label">Trusted by teams at</p>
+    <ul class="logos__list">
+      <li class="logos__item" data-slot="logo-1">Vertex</li>
+      <li class="logos__item" data-slot="logo-2">Lumina</li>
+      <li class="logos__item" data-slot="logo-3">Cobalt</li>
+      <li class="logos__item" data-slot="logo-4">Meridian</li>
+      <li class="logos__item" data-slot="logo-5">Brightline</li>
+      <li class="logos__item" data-slot="logo-6">Halcyon</li>
+    </ul>
+  </section>
+
+  <section class="features" id="features" data-slot="features" data-reveal>
+    <div class="shell">
+      <h2 class="features__title" data-slot="features-title">Everything you need, nothing you don't</h2>
+      <p class="features__lede" data-slot="features-lede">Powerful features that work seamlessly together, right out of the box.</p>
+      <div class="features__grid">
+        <article class="feature">
+          <div class="feature__icon"><svg class="feature__glyph" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7z" /></svg></div>
+          <h3 data-slot="feature-1-title">Lightning Fast</h3>
+          <p data-slot="feature-1-body">Built on modern infrastructure so every action feels instant, no matter how much you throw at it.</p>
+        </article>
+        <article class="feature">
+          <div class="feature__icon"><svg class="feature__glyph" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 3 6v6c0 5 4 9 9 10 5-1 9-5 9-10V6z" /></svg></div>
+          <h3 data-slot="feature-2-title">Enterprise Ready</h3>
+          <p data-slot="feature-2-body">Security and compliance built in from day one, so your team can move without slowing down.</p>
+        </article>
+        <article class="feature">
+          <div class="feature__icon"><svg class="feature__glyph" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8" /></svg></div>
+          <h3 data-slot="feature-3-title">Insightful Analytics</h3>
+          <p data-slot="feature-3-body">Understand what is happening across your whole operation with dashboards that update in real time.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="stats" data-slot="stats" data-reveal>
+    <div class="shell">
+      <!-- INTERVENTION 7 — the fabricated proof bar is replaced with figures the
+           company can actually stand behind, and the numbers are sourced.
+           Breaks SLOP-048 (no fabricated metric) and SLOP-049 (a stat carries
+           sourcing). The bar keeps four items, so SLOP-028 still passes. -->
+      <div class="stats__grid">
+        <div class="stat"><span class="stat__value" data-slot="stat-1-value">Since 2019</span><span class="stat__label" data-slot="stat-1-label">Trading</span></div>
+        <div class="stat"><span class="stat__value" data-slot="stat-2-value">Eleven</span><span class="stat__label" data-slot="stat-2-label">People on the team</span></div>
+        <div class="stat"><span class="stat__value" data-slot="stat-3-value">Two</span><span class="stat__label" data-slot="stat-3-label">Offices</span></div>
+        <div class="stat"><span class="stat__value" data-slot="stat-4-value">&mdash;</span><span class="stat__label" data-slot="stat-4-label">Uptime, metric to confirm</span></div>
+      </div>
+      <p class="stats__note">Figures as of March 2026. Source: our own records.</p>
+    </div>
+  </section>
+
+  <section class="testimonials" data-slot="testimonials" data-reveal>
+    <div class="shell">
+      <h2 class="testimonials__title" data-slot="testimonials-title">Loved by teams everywhere</h2>
+      <div class="carousel" data-carousel>
+        <figure class="testimonial">
+          <blockquote data-slot="testimonial-1-quote">Switching over was completely painless. Our team was fully onboarded in under a week, and we have not looked back since.</blockquote>
+          <figcaption data-slot="testimonial-1-attribution">Sarah Mitchell, VP of Operations, Northwind Systems</figcaption>
+        </figure>
+        <figure class="testimonial">
+          <blockquote data-slot="testimonial-2-quote">It paid for itself inside the first quarter. Honestly it has become essential to how we get through the day.</blockquote>
+          <figcaption data-slot="testimonial-2-attribution">Daniel Okafor, Head of Growth, Brightline Labs</figcaption>
+        </figure>
+        <figure class="testimonial">
+          <blockquote data-slot="testimonial-3-quote">We evaluated four other options before we landed here. Nothing else came close on ease of use or on support.</blockquote>
+          <figcaption data-slot="testimonial-3-attribution">Priya Raman, Director of Engineering, Vantage Group</figcaption>
+        </figure>
+      </div>
+      <div class="carousel__dots">
+        <button type="button" aria-label="Go to slide 1" aria-current="true"></button>
+        <button type="button" aria-label="Go to slide 2"></button>
+        <button type="button" aria-label="Go to slide 3"></button>
+      </div>
+    </div>
+  </section>
+
+  <section class="pricing" id="pricing" data-slot="pricing" data-reveal>
+    <div class="shell">
+      <h2 class="pricing__title" data-slot="pricing-title">Simple, transparent pricing</h2>
+      <div class="pricing__grid">
+        <article class="tier">
+          <h3 data-slot="tier-1-name">Starter</h3>
+          <p class="tier__price" data-slot="tier-1-price">$0</p>
+          <p class="tier__period">per user / month</p>
+          <ul class="tier__list">
+            <li>Up to 3 seats</li>
+            <li>Core features</li>
+            <li>Community support</li>
+          </ul>
+          <a class="btn btn--secondary" href="#">Get Started</a>
+        </article>
+        <article class="tier tier--popular">
+          <span class="tier__badge">Most Popular</span>
+          <h3 data-slot="tier-2-name">Growth</h3>
+          <p class="tier__price" data-slot="tier-2-price">$29</p>
+          <p class="tier__period">per user / month</p>
+          <ul class="tier__list">
+            <li>Unlimited seats</li>
+            <li>Advanced analytics</li>
+            <li>Priority support</li>
+          </ul>
+          <a class="btn btn--primary" href="#">Start Free Trial</a>
+        </article>
+        <article class="tier">
+          <h3 data-slot="tier-3-name">Enterprise</h3>
+          <p class="tier__price" data-slot="tier-3-price">Custom</p>
+          <p class="tier__period">billed annually</p>
+          <ul class="tier__list">
+            <li>Dedicated support</li>
+            <li>Custom integrations</li>
+            <li>Onboarding at scale</li>
+          </ul>
+          <a class="btn btn--secondary" href="#">Contact Sales</a>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="faq" data-slot="faq" data-reveal>
+    <div class="shell">
+      <h2 class="faq__title" data-slot="faq-title">Frequently asked questions</h2>
+      <div class="faq__list">
+        <details class="faq__item" open>
+          <summary data-slot="faq-1-question">How quickly can you get up and running?</summary>
+          <p data-slot="faq-1-answer">We built onboarding so that most teams are live on the same day they sign up.</p>
+        </details>
+        <details class="faq__item">
+          <summary data-slot="faq-2-question">Does it work with your existing stack?</summary>
+          <p data-slot="faq-2-answer">Yes. We support every major integration out of the box, and our API covers the rest.</p>
+        </details>
+        <details class="faq__item">
+          <summary data-slot="faq-3-question">What happens if you need to cancel?</summary>
+          <p data-slot="faq-3-answer">You can cancel anytime. We never lock anyone into an annual commitment.</p>
+        </details>
+        <details class="faq__item">
+          <summary data-slot="faq-4-question">Is your data secure?</summary>
+          <p data-slot="faq-4-answer">We encrypt everything in transit and at rest, and we are audited every year.</p>
+        </details>
+        <details class="faq__item">
+          <summary data-slot="faq-5-question">Do you offer discounts for larger teams?</summary>
+          <p data-slot="faq-5-answer">We do. Our team will put together a plan that fits whatever size you are at.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <section class="cta-banner" data-slot="cta-banner" data-reveal>
+    <h2 data-slot="cta-banner-headline">Ready to get started?</h2>
+    <p data-slot="cta-banner-subhead">Join thousands of teams already working smarter.</p>
+    <a class="btn btn--secondary" data-slot="cta-banner-cta" href="#">Get Started Free</a>
+  </section>
+
+</main>
+
+<footer class="footer" data-slot="footer">
+  <div class="shell">
+    <div class="footer__cols">
+      <div class="footer__col">
+        <h4 class="footer__col-title">Elsewhere</h4>
+        <ul><li>Docs</li><li>Changelog</li><li>Write to us</li></ul>
+      </div>
+      <div class="footer__col">
+        <h4 class="footer__col-title">Legal</h4>
+        <ul><li>Privacy</li><li>Terms</li></ul>
+      </div>
+    </div>
+    <p class="footer__legal" data-slot="footer-legal">© 2026 Northwind. All rights reserved.</p>
+  </div>
+</footer>
+
+</body>
+</html>
