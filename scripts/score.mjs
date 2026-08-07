@@ -22,6 +22,7 @@ import * as cheerio from 'cheerio';
 import yaml from 'js-yaml';
 import { chromium } from 'playwright';
 import { parse as parseColor, converter } from 'culori';
+import { checkDistinctiveness } from './distinctiveness.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const ROOT = path.resolve(HERE, '..');
@@ -936,7 +937,19 @@ const CSS_CHECKS = {
       : fail(`${els.length} blob element(s), none blurred + gradient-filled + infinitely animated`);
   },
 
-  distinctiveness: async () => fail('distinctiveness gate lands in Phase 4'),
+  /**
+   * The self-sabotage meta-gate. Runs last, and needs its own pages rather than
+   * the shared one — it captures two normalized screenshots and diffs them. See
+   * scripts/distinctiveness.mjs.
+   */
+  distinctiveness: async (page, ctx) => {
+    const { passed, evidence } = await checkDistinctiveness(ctx.htmlPath, {
+      browser: page.context().browser(),
+      goldenPath: ctx.goldenPath,
+      threshold: ctx.threshold,
+    });
+    return { passed, evidence };
+  },
 };
 
 /** Every :hover rule in the document, flattened out of the CSSOM. */
@@ -996,11 +1009,22 @@ function readDiscarded(htmlPath) {
  * Score one HTML file against every gate.
  * @returns {Promise<{slopScore: number, total: number, manual: number, results: Array<{gateId: string, category: string, checkType: string, passed: boolean, evidence: string}>}>}
  */
-export async function scoreHtml(htmlPath, { gates = loadGates(), browser: given } = {}) {
+export async function scoreHtml(
+  htmlPath,
+  { gates = loadGates(), browser: given, goldenPath, threshold } = {},
+) {
   const abs = path.resolve(htmlPath);
   const html = readFileSync(abs, 'utf8');
   const $ = cheerio.load(html);
-  const ctx = { $, html, htmlPath: abs, css: collectCss($, abs), discarded: readDiscarded(abs) };
+  const ctx = {
+    $,
+    html,
+    htmlPath: abs,
+    css: collectCss($, abs),
+    discarded: readDiscarded(abs),
+    goldenPath,
+    threshold,
+  };
 
   const needsBrowser = gates.some((g) => g.check_type === 'css');
   const browser = needsBrowser ? (given ?? (await chromium.launch())) : null;

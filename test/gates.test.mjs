@@ -1,11 +1,16 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import yaml from 'js-yaml';
 import AjvModule from 'ajv';
 import { chromium } from 'playwright';
 import { scoreHtml, failingGates, classifyGradient } from '../scripts/score.mjs';
+import {
+  checkDistinctiveness,
+  structuralSimilarity,
+  DEFAULT_THRESHOLD,
+} from '../scripts/distinctiveness.mjs';
 
 const Ajv = AjvModule.default ?? AjvModule;
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -183,12 +188,6 @@ describe('gates.yaml — structure', () => {
 
 const golden = (name) => path.join(root, 'examples/golden', name);
 
-// SLOP-057 is the self-sabotage meta-gate; it is implemented in Phase 4 and
-// reports unsatisfied until then. Excluding it here keeps these assertions about
-// the 56 gates the scorer actually adjudicates in this phase.
-const META = 'SLOP-057';
-const withoutMeta = (ids) => ids.filter((id) => id !== META);
-
 describe('scorer — fixtures', () => {
   let browser;
   const reports = {};
@@ -204,10 +203,10 @@ describe('scorer — fixtures', () => {
     await browser?.close();
   });
 
-  it('scores the golden slop fixture on every adjudicated gate', () => {
+  it('scores the golden slop fixture 57/57', () => {
     const report = reports['fully-sloppy.html'];
-    expect(withoutMeta(failingGates(report))).toEqual([]);
-    expect(report.slopScore).toBe(56); // becomes 57 when Phase 4 lands SLOP-057
+    expect(failingGates(report)).toEqual([]);
+    expect(report.slopScore).toBe(57);
   });
 
   it('scores the tasteful fixture low', () => {
@@ -232,6 +231,7 @@ describe('scorer — fixtures', () => {
     // SLOP-004 (body weight 400) is a legitimate pass — a tasteful page really
     // does set body copy at 400. SLOP-038 and SLOP-053 are the two manual gates.
     // SLOP-056 passes because there is no discard log to check against.
+    // Notably SLOP-057 is NOT here: the self-sabotage gate catches this page.
     expect(passing).toEqual(['SLOP-004', 'SLOP-038', 'SLOP-053', 'SLOP-056']);
   });
 
@@ -239,6 +239,11 @@ describe('scorer — fixtures', () => {
     // partial.html is the golden template with seven commented craft
     // interventions applied. This asserts the scorer is specific about which
     // parts of a page are too good, not just that the total came out lower.
+    //
+    // SLOP-057 is deliberately absent: partial IS structurally the golden
+    // template, so the self-sabotage gate passes it. Craft applied within the
+    // canonical macrostructure is caught by the specific gates, not the
+    // meta-gate — which is the division of labour the two are meant to have.
     const expected = [
       'SLOP-001', // off-allowlist webfont (Fraunces) loaded
       'SLOP-003', // display/body pairing rather than one family
@@ -252,7 +257,7 @@ describe('scorer — fixtures', () => {
       'SLOP-048', // proof bar carries no fabricated metric
       'SLOP-049', // a stat is sourced and dated
     ];
-    expect(withoutMeta(failingGates(reports['partial.html']))).toEqual(expected);
+    expect(failingGates(reports['partial.html'])).toEqual(expected);
   });
 
   it('leaves the partial fixture between the other two', () => {
@@ -269,6 +274,107 @@ describe('scorer — fixtures', () => {
       }
     }
   });
+});
+
+// ── SLOP-057, the self-sabotage meta-gate ────────────────────────────────────
+
+describe('SLOP-057 — self-sabotage gate', () => {
+  let browser;
+
+  beforeAll(async () => {
+    browser = await chromium.launch();
+  }, 120_000);
+
+  afterAll(async () => {
+    await browser?.close();
+  });
+
+  it('fails the tasteful fixture — the page is too original', async () => {
+    const result = await checkDistinctiveness(golden('tasteful.html'), { browser });
+    expect(result.passed).toBe(false);
+    expect(result.similarity).toBeLessThan(DEFAULT_THRESHOLD);
+    expect(result.evidence).toMatch(/too original/);
+  }, 120_000);
+
+  it('passes the golden fixture', async () => {
+    const result = await checkDistinctiveness(golden('fully-sloppy.html'), { browser });
+    expect(result.passed).toBe(true);
+    expect(result.similarity).toBe(1);
+  }, 120_000);
+
+  it('passes a page that kept the macrostructure', async () => {
+    // partial.html proves the gate measures structure and style rather than
+    // copy: its headline, stats, and footer text are all different, and it
+    // still lands near-identical.
+    const result = await checkDistinctiveness(golden('partial.html'), { browser });
+    expect(result.passed).toBe(true);
+    expect(result.similarity).toBeGreaterThan(0.95);
+  }, 120_000);
+
+  it('holds the measured margin on the tasteful fixture', async () => {
+    // Observed at 0.773 against a 0.85 floor. Both fixtures are light-ground
+    // pages, so most of the canvas is matching paper and the margin is only
+    // ~7.7 points — narrower than the threshold alone suggests. Pinned so a
+    // change that erodes it fails here rather than silently passing a crafted
+    // page later.
+    const { similarity } = await structuralSimilarity(
+      golden('tasteful.html'),
+      golden('fully-sloppy.html'),
+      { browser },
+    );
+    expect(similarity).toBeGreaterThan(0.72);
+    expect(similarity).toBeLessThan(0.82);
+  }, 120_000);
+
+  /** Rewrite the visible copy without touching a tag, class, or declaration. */
+  const reword = async (swaps, assertion) => {
+    const tmp = path.join(root, 'examples/golden/.tmp-reworded.html');
+    let html = readFileSync(golden('fully-sloppy.html'), 'utf8');
+    for (const [from, to] of swaps) html = html.replaceAll(from, to);
+    writeFileSync(tmp, html);
+    try {
+      const { similarity } = await structuralSimilarity(tmp, golden('fully-sloppy.html'), {
+        browser,
+      });
+      assertion(similarity);
+    } finally {
+      rmSync(tmp, { force: true });
+    }
+  };
+
+  it('ignores copy content entirely', async () => {
+    // Every one of these swaps preserves character count, so normalization
+    // produces byte-identical text and the two captures must be pixel-identical.
+    // This is the gate's core claim: it measures structure and style, not words.
+    await reword(
+      [
+        ['Elevate your <em>workflow</em>', 'Empower your <em>business</em>'],
+        ['Northwind', 'Northgate'],
+        ['Lightning Fast', 'Extremely Fast'],
+        ['Enterprise Ready', 'Compliance Ready'],
+        ['Insightful Analytics', 'Meaningful Analytics'],
+      ],
+      (similarity) => expect(similarity).toBe(1),
+    );
+  }, 120_000);
+
+  it('is only marginally sensitive to copy length', async () => {
+    // Normalization erases what the words say but not how many characters they
+    // run to, so copy of a different length shifts wrapping slightly. That is
+    // deliberate — preserving length is what keeps measure, leading, and wrap
+    // legible to the diff — and the residual effect is well under a percent.
+    await reword(
+      [
+        ['Elevate your <em>workflow</em>', 'Transform your <em>organisation</em>'],
+        ['Northwind', 'Quarterdeck Industries'],
+        ['Insightful Analytics', 'Charts'],
+      ],
+      (similarity) => {
+        expect(similarity).toBeGreaterThan(0.99);
+        expect(similarity).toBeLessThan(1);
+      },
+    );
+  }, 120_000);
 });
 
 describe('scorer — gradient classification', () => {
