@@ -5,7 +5,14 @@ import path from 'node:path';
 import yaml from 'js-yaml';
 import AjvModule from 'ajv';
 import { chromium } from 'playwright';
-import { scoreHtml, failingGates, classifyGradient } from '../scripts/score.mjs';
+import {
+  scoreHtml,
+  failingGates,
+  classifyGradient,
+  expandVars,
+  customProperties,
+  declaredFamilies,
+} from '../scripts/score.mjs';
 import {
   checkDistinctiveness,
   structuralSimilarity,
@@ -375,6 +382,55 @@ describe('SLOP-057 — self-sabotage gate', () => {
       },
     );
   }, 120_000);
+});
+
+describe('scorer — custom property resolution', () => {
+  // Phase 6 fix. Slopify's own template declares `font-family: var(--font)` and
+  // never names a family literally, so reading declarations without expanding
+  // var() reported zero families on exactly the pages the tool builds — SLOP-007
+  // failed against a page that satisfied it perfectly.
+
+  it('resolves a token to its declared value', () => {
+    const vars = customProperties(":root { --font: 'Inter', sans-serif; }");
+    expect(expandVars('var(--font)', vars)).toBe("'Inter', sans-serif");
+  });
+
+  it('resolves a token that points at another token', () => {
+    const vars = customProperties(':root { --a: #7C3AED; --b: var(--a); }');
+    expect(expandVars('var(--b)', vars)).toBe('#7C3AED');
+  });
+
+  it('falls back when a token is undeclared', () => {
+    const vars = customProperties(':root { --x: 1px; }');
+    expect(expandVars('var(--nope, 4px)', vars)).toBe('4px');
+  });
+
+  it('does not loop forever on a self-referencing token', () => {
+    const vars = customProperties(':root { --loop: var(--loop); }');
+    expect(() => expandVars('var(--loop)', vars)).not.toThrow();
+  });
+
+  it('finds the family behind a token', () => {
+    const css = ":root { --font: 'Inter', sans-serif; } body { font-family: var(--font); }";
+    expect(declaredFamilies(css)).toEqual(['Inter']);
+  });
+
+  it('still finds a literally declared family', () => {
+    expect(declaredFamilies("body { font-family: 'Fraunces', Georgia, serif; }")).toEqual([
+      'Fraunces',
+      'Georgia',
+    ]);
+  });
+
+  it('counts a tokenised second family as a second family', () => {
+    // The gate must not become bypassable by routing a pairing through tokens.
+    const css = `
+      :root { --font: 'Inter', sans-serif; --font-display: 'Fraunces', serif; }
+      body { font-family: var(--font); }
+      h1 { font-family: var(--font-display); }
+    `;
+    expect(declaredFamilies(css).sort()).toEqual(['Fraunces', 'Inter']);
+  });
 });
 
 describe('scorer — gradient classification', () => {
