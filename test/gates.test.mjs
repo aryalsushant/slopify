@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { readFileSync, writeFileSync, rmSync } from 'node:fs';
+import { readFileSync, writeFileSync, rmSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import yaml from 'js-yaml';
@@ -335,7 +335,12 @@ describe('SLOP-057 — self-sabotage gate', () => {
 
   /** Rewrite the visible copy without touching a tag, class, or declaration. */
   const reword = async (swaps, assertion) => {
-    const tmp = path.join(root, 'examples/golden/.tmp-reworded.html');
+    // Scratch files must not land in examples/golden/: vitest runs test files in
+    // parallel, and the audit verb's directory-listing test enumerates that
+    // directory. A temp .html there made that test flaky depending on scheduling.
+    const scratch = path.join(root, 'test/.tmp-gates');
+    mkdirSync(scratch, { recursive: true });
+    const tmp = path.join(scratch, 'reworded.html');
     let html = readFileSync(golden('fully-sloppy.html'), 'utf8');
     for (const [from, to] of swaps) html = html.replaceAll(from, to);
     writeFileSync(tmp, html);
@@ -345,7 +350,7 @@ describe('SLOP-057 — self-sabotage gate', () => {
       });
       assertion(similarity);
     } finally {
-      rmSync(tmp, { force: true });
+      rmSync(scratch, { recursive: true, force: true });
     }
   };
 
