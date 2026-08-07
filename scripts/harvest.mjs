@@ -53,9 +53,21 @@ const REFUSED_HOSTS = [
   'creativemarket.com',
 ];
 
-/** Source mode. A URL routes to URL mode; anything else is an image path. */
+/**
+ * Source mode. A URL routes to URL mode; anything else is an image path.
+ *
+ * Any `scheme://` prefix counts as a URL attempt, not just http and https. An
+ * earlier version matched only `^https?://`, which meant `file:///etc/passwd` was
+ * classified as an image path, skipped the URL guard entirely, and came back as
+ * "no such image" — refused, but for the wrong reason and without the scheme
+ * check ever running. Routing every scheme through assertPublicHttpUrl is what
+ * makes the refusal deliberate rather than incidental.
+ *
+ * Windows drive letters (`C:\shots\hero.png`) are not schemes and stay in image
+ * mode.
+ */
 export function classifySource(source) {
-  return /^https?:\/\//i.test(String(source).trim()) ? 'url' : 'image';
+  return /^[a-z][a-z0-9+.-]*:\/\//i.test(String(source).trim()) ? 'url' : 'image';
 }
 
 /**

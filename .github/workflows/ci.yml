@@ -31,6 +31,25 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # cursor/slopify.mdc is generated from SKILL.md and committed. Regenerate it
+      # and fail on any difference, so nobody can edit SKILL.md's body and leave
+      # Cursor users on a stale copy of the rule-set.
+      #
+      # git diff --exit-code is the check rather than the generator's own --check,
+      # because it also catches a hand-edit to the committed file that the
+      # generator would happily overwrite without comment.
+      - name: Regenerate the Cursor rule
+        run: npm run cursor-rule
+
+      - name: Cursor rule is in sync with SKILL.md
+        run: |
+          if ! git diff --exit-code -- cursor/slopify.mdc; then
+            echo "::error file=cursor/slopify.mdc::cursor/slopify.mdc is out of sync with SKILL.md."
+            echo "SKILL.md's body changed without the Cursor rule being regenerated."
+            echo "Fix: run 'npm run cursor-rule' and commit the result."
+            exit 1
+          fi
+
       # Most of the 57 gates read computed styles out of a real render, and
       # SLOP-057 screenshots two pages and diffs them. Without a browser the
       # suite cannot check anything that matters. --with-deps pulls the system
