@@ -21,6 +21,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import * as cheerio from 'cheerio';
 import yaml from 'js-yaml';
 import { chromium } from 'playwright';
+import { parse as parseColor, converter } from 'culori';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const ROOT = path.resolve(HERE, '..');
@@ -499,6 +500,67 @@ export function firstFamily(stack) {
 /** Parse a px length, or NaN. */
 const px = (v) => parseFloat(String(v ?? ''));
 
+// ── colour science (culori) ──────────────────────────────────────────────────
+//
+// Gradient direction and neutral-tint checks are done in OKLCH, not by matching
+// CSS strings. Chromium normalises authored hexes into rgb()/rgba() and may
+// reorder or expand stops, so a string match would be checking the serialiser
+// rather than the design. Comparing hue and chroma survives all of that.
+
+const toOklch = converter('oklch');
+
+/** Convert any CSS colour string to OKLCH, or null if it isn't a colour. */
+export function oklchOf(value) {
+  const parsed = parseColor(String(value ?? '').trim());
+  if (!parsed) return null;
+  const c = toOklch(parsed);
+  return { l: c.l ?? 0, c: c.c ?? 0, h: c.h ?? 0, alpha: parsed.alpha ?? 1 };
+}
+
+/** Pull the colour stops out of a computed gradient, in order. */
+export function gradientStops(backgroundImage) {
+  const stops = [];
+  for (const m of String(backgroundImage ?? '').matchAll(
+    /rgba?\([^)]*\)|#[0-9a-fA-F]{3,8}\b/g,
+  )) {
+    const c = oklchOf(m[0]);
+    if (c) stops.push(c);
+  }
+  return stops;
+}
+
+/**
+ * Hue bands for the two canonical slop gradients, measured off the reference
+ * palette: violet #7C3AED sits at hue 293, pink #EC4899 at 354, blue #3B82F6
+ * at 260, cyan #06B6D4 at 215.
+ */
+const GRADIENT_DIRECTIONS = [
+  {
+    name: 'purple → pink',
+    from: (h) => h >= 270 && h <= 325,
+    to: (h) => h >= 325 || h <= 15,
+  },
+  {
+    name: 'blue → cyan',
+    from: (h) => h >= 240 && h < 280,
+    to: (h) => h >= 185 && h < 240,
+  },
+];
+
+/** Is this gradient one of the two canonical directions? */
+export function classifyGradient(backgroundImage) {
+  const stops = gradientStops(backgroundImage).filter((s) => s.alpha > 0 && s.c >= 0.08);
+  if (stops.length < 2) return null;
+  const from = stops[0];
+  const to = stops[stops.length - 1];
+  for (const dir of GRADIENT_DIRECTIONS) {
+    if (dir.from(from.h) && dir.to(to.h)) {
+      return { name: dir.name, fromHue: from.h, toHue: to.h };
+    }
+  }
+  return null;
+}
+
 const CSS_CHECKS = {
   'font-allowlist-computed': async (page) => {
     const s = await computedOne(page, 'body', ['font-family']);
@@ -580,6 +642,135 @@ const CSS_CHECKS = {
     return hit
       ? pass(`135deg gradient on ${hit._tag}.${hit._class}`)
       : fail('no 135deg linear-gradient on any heading or CTA');
+  },
+
+  'gradient-hue-direction': async (page, _ctx, gate) => {
+    const els = await computedAll(page, gate.selector, ['background-image']);
+    const gradients = els.filter((e) => /gradient\(/.test(e['background-image']));
+    if (gradients.length === 0) return fail('no gradient on any heading or CTA');
+    for (const e of gradients) {
+      const hit = classifyGradient(e['background-image']);
+      if (hit) {
+        return pass(
+          `${hit.name} on ${e._tag}.${e._class} (hue ${hit.fromHue.toFixed(0)} → ${hit.toHue.toFixed(0)})`,
+        );
+      }
+    }
+    const stops = gradientStops(gradients[0]['background-image']);
+    return fail(
+      `gradient hue direction is off-canon (${stops.map((s) => s.h.toFixed(0)).join(' → ')})`,
+    );
+  },
+
+  'light-tint-section': async (page, _ctx, gate) => {
+    const els = await computedAll(page, gate.selector, ['background-color']);
+    if (els.length === 0) return fail(`nothing matches ${gate.selector}`);
+    for (const e of els) {
+      const c = oklchOf(e['background-color']);
+      if (!c || c.alpha === 0) continue;
+      if (c.l >= 0.95 && c.c >= 0.005 && c.c <= 0.05) {
+        return pass(
+          `.${e._class.split(/\s+/)[0]} tinted at L ${c.l.toFixed(3)} / C ${c.c.toFixed(4)}`,
+        );
+      }
+    }
+    return fail('no section background lands in the very-light tint band (L ≥ 0.95, C 0.005–0.05)');
+  },
+
+  'slate-body-ink': async (page) => {
+    const s = await computedOne(page, 'body', ['color']);
+    const c = oklchOf(s?.color);
+    if (!c) return fail(`body colour reads "${s?.color}"`);
+    return c.l >= 0.3 && c.l <= 0.6 && c.c <= 0.04
+      ? pass(`body ink at L ${c.l.toFixed(3)} / C ${c.c.toFixed(4)} — standard slate`)
+      : fail(`body ink at L ${c.l.toFixed(3)} / C ${c.c.toFixed(4)} sits outside the slate band`);
+  },
+
+  /**
+   * Accent footprint by area. Candidates are elements painted with a gradient or
+   * a chromatic background; their rects are rasterised onto a 10px grid over the
+   * first viewport so overlapping paint is counted once rather than summed.
+   */
+  'accent-footprint': async (page) => {
+    const painted = await page.evaluate(() => {
+      return [...document.querySelectorAll('*')]
+        .map((el) => {
+          const cs = getComputedStyle(el);
+          const r = el.getBoundingClientRect();
+          return {
+            bgImage: cs.backgroundImage,
+            bgColor: cs.backgroundColor,
+            rect: { x: r.x, y: r.y, width: r.width, height: r.height },
+          };
+        })
+        .filter((e) => e.rect.width > 0 && e.rect.height > 0);
+    });
+
+    const accent = painted.filter((e) => {
+      if (/gradient\(/.test(e.bgImage)) return true;
+      const c = oklchOf(e.bgColor);
+      return Boolean(c) && c.alpha > 0 && c.c >= 0.08;
+    });
+    if (accent.length === 0) return fail('no accent-painted element on the page');
+
+    const CELL = 10;
+    const cols = Math.ceil(VIEWPORT.width / CELL);
+    const rows = Math.ceil(VIEWPORT.height / CELL);
+    const covered = new Uint8Array(cols * rows);
+    for (const { rect } of accent) {
+      const x0 = Math.max(0, Math.floor(rect.x / CELL));
+      const x1 = Math.min(cols - 1, Math.floor((rect.x + rect.width) / CELL));
+      const y0 = Math.max(0, Math.floor(rect.y / CELL));
+      const y1 = Math.min(rows - 1, Math.floor((rect.y + rect.height) / CELL));
+      for (let y = y0; y <= y1; y++) {
+        for (let x = x0; x <= x1; x++) covered[y * cols + x] = 1;
+      }
+    }
+    const share = covered.reduce((a, b) => a + b, 0) / covered.length;
+    const pct = (share * 100).toFixed(1);
+    return share > 0.05
+      ? pass(`accent covers ${pct}% of the fold — well past the 5% restraint ceiling`)
+      : fail(`accent covers only ${pct}% of the fold, which reads as restraint`);
+  },
+
+  'icon-in-circle': async (page, _ctx, gate) => {
+    const els = await computedAll(page, gate.selector, ['border-radius', 'background-color']);
+    if (els.length === 0) return fail(`nothing matches ${gate.selector}`);
+    for (const e of els) {
+      const raw = e['border-radius'];
+      const round = raw.includes('%')
+        ? px(raw) >= 50
+        : px(raw) >= e._rect.width / 2 - 0.5;
+      if (!round) return fail(`an icon frame is not a circle (border-radius ${raw})`);
+      const c = oklchOf(e['background-color']);
+      if (!c || c.alpha === 0 || c.c < 0.02) {
+        return fail(`an icon frame is not on a tinted ground (${e['background-color']})`);
+      }
+    }
+    return pass(`all ${els.length} icons circle-framed on a tinted accent ground`);
+  },
+
+  'popular-tier-lift': async (page, _ctx, gate) => {
+    const popular = await computedOne(page, gate.selector, [
+      'transform',
+      'box-shadow',
+      'border-top-color',
+      'border-top-width',
+    ]);
+    if (!popular) return fail(`nothing matches ${gate.selector}`);
+    if (popular.transform === 'none') return fail('popular tier carries no transform');
+    if (!popular['box-shadow'] || popular['box-shadow'] === 'none') {
+      return fail('popular tier carries no shadow');
+    }
+    const border = oklchOf(popular['border-top-color']);
+    if (!border || border.c < 0.05) {
+      return fail(`popular tier border is not accent-coloured (${popular['border-top-color']})`);
+    }
+    const siblings = await computedAll(page, '.tier:not(.tier--popular)', ['transform']);
+    const alsoLifted = siblings.filter((s) => s.transform !== 'none');
+    return alsoLifted.length === 0
+      ? pass('popular tier lifted, accent-bordered, and shadowed above flat siblings')
+      : fail(`${alsoLifted.length} sibling tier(s) are lifted too, so nothing stands out`);
   },
 
   'radius-band': async (page, _ctx, gate) => {
