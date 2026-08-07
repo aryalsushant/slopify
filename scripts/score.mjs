@@ -164,11 +164,40 @@ export function collectCss($, htmlPath) {
   return parts.join('\n');
 }
 
+/**
+ * Expand `var(--name)` references in a CSS value against the custom properties
+ * declared in the same stylesheet.
+ *
+ * Needed because a tokenised page declares `font-family: var(--font)` and never
+ * names a family literally. Reading the declaration without expanding it would
+ * report zero families on exactly the pages Slopify itself builds.
+ */
+export function expandVars(value, vars, depth = 0) {
+  if (depth > 4) return value;
+  return String(value).replace(
+    /var\(\s*--([\w-]+)\s*(?:,([^)]*))?\)/g,
+    (_, name, fallback) => {
+      const resolved = vars.get(name) ?? (fallback ?? '').trim();
+      return expandVars(resolved, vars, depth + 1);
+    },
+  );
+}
+
+/** Custom properties declared anywhere in a stylesheet. */
+export function customProperties(css) {
+  const vars = new Map();
+  for (const m of String(css).matchAll(/--([\w-]+)\s*:\s*([^;}]+)/g)) {
+    vars.set(m[1], m[2].trim());
+  }
+  return vars;
+}
+
 /** Every non-generic family named in any font-family declaration. */
 export function declaredFamilies(css) {
+  const vars = customProperties(css);
   const found = new Set();
   for (const match of css.matchAll(/font-family\s*:\s*([^;}]+)/gi)) {
-    for (const raw of match[1].split(',')) {
+    for (const raw of expandVars(match[1], vars).split(',')) {
       const name = raw.trim().replace(/^['"]|['"]$/g, '');
       if (!name || name.startsWith('var(')) continue;
       if (GENERIC_FAMILIES.has(name.toLowerCase())) continue;
@@ -952,9 +981,27 @@ const CSS_CHECKS = {
   },
 };
 
-/** Every :hover rule in the document, flattened out of the CSSOM. */
+/**
+ * Every :hover rule in the document, flattened out of the CSSOM with custom
+ * properties resolved.
+ *
+ * CSSOM hands back the authored text, so a tokenised page reports
+ * `translateY(var(--hover-lift))` where a hand-written one reports
+ * `translateY(-4px)`. Resolving against the root's computed custom properties
+ * makes both read the same, so the gates measure the hover effect rather than
+ * whether the author happened to use tokens.
+ */
 async function hoverRules(page) {
   return page.evaluate(() => {
+    const rootStyle = getComputedStyle(document.documentElement);
+    const resolve = (value, depth = 0) => {
+      if (!value || depth > 4) return value ?? '';
+      return value.replace(/var\(\s*--([\w-]+)\s*(?:,([^)]*))?\)/g, (_, name, fallback) => {
+        const declared = rootStyle.getPropertyValue(`--${name}`).trim();
+        return resolve(declared || (fallback ?? '').trim(), depth + 1);
+      });
+    };
+
     const out = [];
     const walk = (list) => {
       for (const rule of list) {
@@ -962,8 +1009,8 @@ async function hoverRules(page) {
         if (!rule.selectorText || !rule.selectorText.includes(':hover')) continue;
         out.push({
           selectorText: rule.selectorText,
-          transform: rule.style.transform || '',
-          boxShadow: rule.style.boxShadow || '',
+          transform: resolve(rule.style.transform),
+          boxShadow: resolve(rule.style.boxShadow),
         });
       }
     };
