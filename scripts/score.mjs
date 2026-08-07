@@ -23,6 +23,7 @@ import yaml from 'js-yaml';
 import { chromium } from 'playwright';
 import { parse as parseColor, converter } from 'culori';
 import { checkDistinctiveness } from './distinctiveness.mjs';
+import { mentionsTerm } from './copy-generator.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const ROOT = path.resolve(HERE, '..');
@@ -476,8 +477,12 @@ const TEXT_CHECKS = {
 
   'brief-keyword-leak': ({ $, discarded }) => {
     if (!discarded || discarded.length === 0) return pass('no discard log to check against');
-    const text = textOf($, $('body')).toLowerCase();
-    const leaked = discarded.filter((term) => text.includes(String(term).toLowerCase()));
+    const text = textOf($, $('body'));
+    // Word-bounded, not a raw substring test. A substring test reports "Vance"
+    // leaking because the page says "Advanced" and "water" leaking because a
+    // wordmark is "Clearwater" — neither is the brief's language reaching the
+    // page, and failing the gate on them would be dishonest.
+    const leaked = discarded.filter((term) => mentionsTerm(text, term));
     return leaked.length === 0
       ? pass(`none of ${discarded.length} discarded brief term(s) reached the page`)
       : fail(`brief term(s) leaked into the copy: ${leaked.join(', ')}`);
