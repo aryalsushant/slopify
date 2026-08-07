@@ -20,11 +20,19 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import * as cheerio from 'cheerio';
 import yaml from 'js-yaml';
+import { chromium } from 'playwright';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const ROOT = path.resolve(HERE, '..');
 
 export const TOTAL_GATES = 57;
+
+/**
+ * Fixed viewport for every computed-style read. Hallmark's gate 44 tests the
+ * hero at 1280x800 rather than 1440x900, so the same laptop viewport is used
+ * here for the area and fold measurements.
+ */
+export const VIEWPORT = { width: 1280, height: 800 };
 
 /** Families a page may load. Hallmark gate 1 bans these as display faces. */
 export const FONT_ALLOWLIST = ['Inter', 'Poppins', 'Manrope', 'Space Grotesk'];
@@ -445,6 +453,327 @@ const TEXT_CHECKS = {
   },
 };
 
+// ── css checks (Playwright computed styles) ──────────────────────────────────
+//
+// The declared value in a stylesheet is not the value that renders, so these
+// gates read getComputedStyle in a real headless Chromium at a fixed viewport.
+// A handful reach into the CSSOM instead, because :hover styling has no
+// computed form to read at rest.
+
+/** Read named properties off the first match, or null when nothing matches. */
+async function computedOne(page, selector, props) {
+  return page.evaluate(
+    ({ selector, props }) => {
+      const el = document.querySelector(selector);
+      if (!el) return null;
+      const cs = getComputedStyle(el);
+      return Object.fromEntries(props.map((p) => [p, cs.getPropertyValue(p)]));
+    },
+    { selector, props },
+  );
+}
+
+/** Read named properties off every match. */
+async function computedAll(page, selector, props) {
+  return page.evaluate(
+    ({ selector, props }) => {
+      return [...document.querySelectorAll(selector)].map((el) => {
+        const cs = getComputedStyle(el);
+        const out = Object.fromEntries(props.map((p) => [p, cs.getPropertyValue(p)]));
+        const r = el.getBoundingClientRect();
+        out._tag = el.tagName.toLowerCase();
+        out._class = el.getAttribute('class') ?? '';
+        out._rect = { x: r.x, y: r.y, width: r.width, height: r.height };
+        return out;
+      });
+    },
+    { selector, props },
+  );
+}
+
+/** First family in a computed font-family stack, unquoted. */
+export function firstFamily(stack) {
+  return (stack ?? '').split(',')[0].trim().replace(/^['"]|['"]$/g, '');
+}
+
+/** Parse a px length, or NaN. */
+const px = (v) => parseFloat(String(v ?? ''));
+
+const CSS_CHECKS = {
+  'font-allowlist-computed': async (page) => {
+    const s = await computedOne(page, 'body', ['font-family']);
+    if (!s) return fail('no body element');
+    const family = firstFamily(s['font-family']);
+    return FONT_ALLOWLIST.includes(family)
+      ? pass(`body resolves to ${family}`)
+      : fail(`body resolves to ${family || '(empty)'}, which is off-allowlist`);
+  },
+
+  'single-family-page': async (page) => {
+    const head = await computedOne(page, '[data-slot="hero-headline"]', ['font-family']);
+    const body = await computedOne(page, 'body', ['font-family']);
+    if (!head) return fail('no hero headline slot');
+    const h = firstFamily(head['font-family']);
+    const b = firstFamily(body['font-family']);
+    return h === b
+      ? pass(`headline and body both ${h} — no pairing`)
+      : fail(`headline is ${h} against body ${b} — that is a type pairing`);
+  },
+
+  'body-weight-cap': async (page) => {
+    const s = await computedOne(page, 'body', ['font-weight']);
+    const w = px(s?.['font-weight']);
+    return w <= 400
+      ? pass(`body weight ${w}`)
+      : fail(`body weight ${w} exceeds 400, so it was chosen`);
+  },
+
+  'gradient-text-fill': async (page, _ctx, gate) => {
+    const els = await computedAll(page, gate.selector, [
+      'background-clip',
+      '-webkit-background-clip',
+      'background-image',
+      'color',
+      '-webkit-text-fill-color',
+    ]);
+    const hit = els.find(
+      (e) =>
+        (e['background-clip'] === 'text' || e['-webkit-background-clip'] === 'text') &&
+        /gradient\(/.test(e['background-image']) &&
+        /rgba\(\s*\d+,\s*\d+,\s*\d+,\s*0\s*\)/.test(
+          `${e['-webkit-text-fill-color']} ${e['color']}`,
+        ),
+    );
+    return hit
+      ? pass(`gradient text fill on ${hit._tag}.${hit._class}`)
+      : fail('no heading combines background-clip: text with a gradient and transparent fill');
+  },
+
+  'uppercase-tracking': async (page, _ctx, gate) => {
+    const els = await computedAll(page, gate.selector, ['letter-spacing', 'text-transform']);
+    if (els.length === 0) return fail(`nothing matches ${gate.selector}`);
+    const flat = els.filter((e) => !(px(e['letter-spacing']) > 0));
+    return flat.length === 0
+      ? pass(`all ${els.length} uppercase labels tracked out`)
+      : fail(`${flat.length} label(s) at non-positive tracking (e.g. .${flat[0]._class})`);
+  },
+
+  'loose-display-leading': async (page, _ctx, gate) => {
+    const s = await computedOne(page, gate.selector, ['line-height', 'font-size']);
+    if (!s) return fail(`nothing matches ${gate.selector}`);
+    const ratio = px(s['line-height']) / px(s['font-size']);
+    return ratio >= 1.1
+      ? pass(`display leading at ${ratio.toFixed(2)}`)
+      : fail(`display leading at ${ratio.toFixed(2)} — tighter than 1.1 only happens on purpose`);
+  },
+
+  'default-body-size': async (page) => {
+    const s = await computedOne(page, 'body', ['font-size']);
+    return px(s?.['font-size']) === 16
+      ? pass('body at the untouched 16px default')
+      : fail(`body font-size is ${s?.['font-size']}, not 16px`);
+  },
+
+  'gradient-angle-135': async (page, _ctx, gate) => {
+    const els = await computedAll(page, gate.selector, ['background-image']);
+    const hit = els.find((e) => /linear-gradient\(\s*135deg/.test(e['background-image']));
+    return hit
+      ? pass(`135deg gradient on ${hit._tag}.${hit._class}`)
+      : fail('no 135deg linear-gradient on any heading or CTA');
+  },
+
+  'radius-band': async (page, _ctx, gate) => {
+    const s = await computedOne(page, gate.selector, ['border-radius', 'width']);
+    if (!s) return fail(`nothing matches ${gate.selector}`);
+    const r = px(s['border-radius']);
+    if (Number.isNaN(r)) return fail(`border-radius reads "${s['border-radius']}"`);
+    if (r >= 9999) return pass(`fully pilled at ${r}px`);
+    if (r >= 12 && r <= 16) return pass(`inside the 12–16px band at ${r}px`);
+    return fail(`radius ${r}px falls outside both default bands, so somebody picked it`);
+  },
+
+  'pure-white-base': async (page) => {
+    const s = await computedOne(page, 'body', ['background-color']);
+    const bg = (s?.['background-color'] ?? '').replace(/\s+/g, '');
+    return bg === 'rgb(255,255,255)'
+      ? pass('base paper is pure #fff')
+      : fail(`base background is ${s?.['background-color']}, not pure white`);
+  },
+
+  'gradient-reuse': async (page) => {
+    const els = await computedAll(page, '*', ['background-image']);
+    const counts = new Map();
+    for (const e of els) {
+      const img = e['background-image'];
+      if (!/gradient\(/.test(img)) continue;
+      counts.set(img, (counts.get(img) ?? 0) + 1);
+    }
+    const reused = [...counts.entries()].filter(([, n]) => n >= 2);
+    return reused.length > 0
+      ? pass(`one gradient reused verbatim on ${reused[0][1]} elements`)
+      : fail(`${counts.size} gradient(s) on the page, none reused verbatim`);
+  },
+
+  'hero-centred-axis': async (page) => {
+    const data = await page.evaluate(() => {
+      const hero = document.querySelector('[data-slot="hero"]');
+      if (!hero) return null;
+      const hr = hero.getBoundingClientRect();
+      const parts = ['hero-eyebrow', 'hero-headline', 'hero-subhead'].map((slot) => {
+        const el = hero.querySelector(`[data-slot="${slot}"]`);
+        if (!el) return { slot, missing: true };
+        const r = el.getBoundingClientRect();
+        return {
+          slot,
+          textAlign: getComputedStyle(el).textAlign,
+          centre: r.x + r.width / 2,
+        };
+      });
+      const row = hero.querySelector('.hero__ctas');
+      if (row) {
+        const r = row.getBoundingClientRect();
+        parts.push({
+          slot: 'hero-ctas',
+          textAlign: getComputedStyle(row).textAlign,
+          centre: r.x + r.width / 2,
+        });
+      }
+      return { heroCentre: hr.x + hr.width / 2, parts };
+    });
+    if (!data) return fail('no hero');
+    const missing = data.parts.find((p) => p.missing);
+    if (missing) return fail(`hero is missing ${missing.slot}`);
+    const offAxis = data.parts.filter(
+      (p) => p.textAlign !== 'center' || Math.abs(p.centre - data.heroCentre) > 2,
+    );
+    return offAxis.length === 0
+      ? pass(`all ${data.parts.length} hero elements on one centred axis`)
+      : fail(`${offAxis.map((p) => p.slot).join(', ')} sits off the centred axis`);
+  },
+
+  'hero-min-height': async (page, _ctx, gate) => {
+    const s = await computedOne(page, gate.selector, ['min-height']);
+    if (!s) return fail('no hero');
+    const floor = VIEWPORT.height * 0.8;
+    const h = px(s['min-height']);
+    return h >= floor
+      ? pass(`min-height ${Math.round(h)}px against a ${floor}px floor`)
+      : fail(`min-height ${Number.isNaN(h) ? s['min-height'] : Math.round(h) + 'px'} is under the ${floor}px floor`);
+  },
+
+  'three-equal-columns': async (page, _ctx, gate) => {
+    const s = await computedOne(page, gate.selector, ['grid-template-columns']);
+    if (!s) return fail(`nothing matches ${gate.selector}`);
+    const tracks = s['grid-template-columns'].trim().split(/\s+/).map(px);
+    if (tracks.length !== 3) return fail(`${tracks.length} grid tracks, needs exactly 3`);
+    const spread = Math.max(...tracks) - Math.min(...tracks);
+    return spread <= 1
+      ? pass(`3 equal tracks at ${Math.round(tracks[0])}px`)
+      : fail(`3 tracks but unequal (spread ${spread.toFixed(1)}px) — size variation is rhythm`);
+  },
+
+  'uniform-reveal-timing': async (page, _ctx, gate) => {
+    const els = await computedAll(page, gate.selector, [
+      'transition-duration',
+      'transition-timing-function',
+    ]);
+    if (els.length === 0) return fail(`nothing matches ${gate.selector}`);
+    const key = (e) => `${e['transition-duration']}|${e['transition-timing-function']}`;
+    const distinct = new Set(els.map(key));
+    if (distinct.size > 1) return fail(`${distinct.size} distinct reveal timings across sections`);
+    if (px(els[0]['transition-duration']) <= 0) return fail('reveal transition has no duration');
+    return pass(`one timing across all ${els.length} sections: ${els[0]['transition-duration']}`);
+  },
+
+  'transition-all': async (page, _ctx, gate) => {
+    const els = await computedAll(page, gate.selector, ['transition-property']);
+    if (els.length === 0) return fail(`nothing matches ${gate.selector}`);
+    const named = els.filter((e) => e['transition-property'] !== 'all');
+    return named.length === 0
+      ? pass(`all ${els.length} interactive elements transition on "all"`)
+      : fail(`${named.length} element(s) name their transition properties (e.g. "${named[0]['transition-property']}")`);
+  },
+
+  // :hover has no computed form at rest, so these two read the CSSOM.
+  'hover-lift-shadow': async (page) => {
+    const rules = await hoverRules(page);
+    const lift = rules.find(
+      (r) => /translateY\(\s*-\s*[\d.]+/.test(r.transform) && r.boxShadow && r.boxShadow !== 'none',
+    );
+    return lift
+      ? pass(`lift + shadow stacked on "${lift.selectorText}"`)
+      : fail('no hover rule stacks a negative translateY with a box-shadow');
+  },
+
+  'uniform-hover-scale': async (page) => {
+    const rules = await hoverRules(page);
+    const scales = new Map();
+    for (const r of rules) {
+      const m = r.transform.match(/scale\(\s*([\d.]+)/);
+      if (!m) continue;
+      for (const sel of r.selectorText.split(',')) {
+        scales.set(sel.trim(), m[1]);
+      }
+    }
+    const wanted = ['.btn', '.feature', '.tier'];
+    const found = wanted.map((w) => [w, scales.get(`${w}:hover`)]);
+    const missing = found.filter(([, v]) => v === undefined).map(([k]) => k);
+    if (missing.length) return fail(`no hover scale on ${missing.join(', ')}`);
+    const factors = new Set(found.map(([, v]) => v));
+    return factors.size === 1
+      ? pass(`one scale factor (${[...factors][0]}) across button, card, and tier`)
+      : fail(`hover scale varies by element type: ${[...factors].join(', ')}`);
+  },
+
+  'floating-blob': async (page, _ctx, gate) => {
+    const els = await computedAll(page, gate.selector, [
+      'filter',
+      'background-image',
+      'animation-name',
+      'animation-iteration-count',
+    ]);
+    if (els.length === 0) return fail('no blob decoration on the page');
+    const hit = els.find(
+      (e) =>
+        /blur\(/.test(e.filter) &&
+        /gradient\(/.test(e['background-image']) &&
+        e['animation-name'] !== 'none' &&
+        e['animation-iteration-count'] === 'infinite',
+    );
+    return hit
+      ? pass(`blurred gradient blob "${hit._class}" on an infinite ${hit['animation-name']} loop`)
+      : fail(`${els.length} blob element(s), none blurred + gradient-filled + infinitely animated`);
+  },
+
+  distinctiveness: async () => fail('distinctiveness gate lands in Phase 4'),
+};
+
+/** Every :hover rule in the document, flattened out of the CSSOM. */
+async function hoverRules(page) {
+  return page.evaluate(() => {
+    const out = [];
+    const walk = (list) => {
+      for (const rule of list) {
+        if (rule.cssRules) walk(rule.cssRules);
+        if (!rule.selectorText || !rule.selectorText.includes(':hover')) continue;
+        out.push({
+          selectorText: rule.selectorText,
+          transform: rule.style.transform || '',
+          boxShadow: rule.style.boxShadow || '',
+        });
+      }
+    };
+    for (const sheet of document.styleSheets) {
+      try {
+        walk(sheet.cssRules);
+      } catch {
+        /* cross-origin sheet; skip */
+      }
+    }
+    return out;
+  });
+}
+
 /** Generic text gate: match `pattern` against the text inside `selector`. */
 function genericTextCheck(gate, { $ }) {
   const scope = gate.selector ? $(gate.selector) : $('body');
@@ -476,31 +805,50 @@ function readDiscarded(htmlPath) {
  * Score one HTML file against every gate.
  * @returns {Promise<{slopScore: number, total: number, manual: number, results: Array<{gateId: string, category: string, checkType: string, passed: boolean, evidence: string}>}>}
  */
-export async function scoreHtml(htmlPath, { gates = loadGates() } = {}) {
+export async function scoreHtml(htmlPath, { gates = loadGates(), browser: given } = {}) {
   const abs = path.resolve(htmlPath);
   const html = readFileSync(abs, 'utf8');
   const $ = cheerio.load(html);
   const ctx = { $, html, htmlPath: abs, css: collectCss($, abs), discarded: readDiscarded(abs) };
 
-  const results = [];
-  for (const gate of gates) {
-    results.push({
-      gateId: gate.id,
-      category: gate.category,
-      checkType: gate.check_type,
-      ...(await runGate(gate, ctx)),
-    });
-  }
+  const needsBrowser = gates.some((g) => g.check_type === 'css');
+  const browser = needsBrowser ? (given ?? (await chromium.launch())) : null;
+  let page = null;
 
-  return {
-    slopScore: results.filter((r) => r.passed).length,
-    total: gates.length,
-    manual: results.filter((r) => r.checkType === 'manual').length,
-    results,
-  };
+  try {
+    if (browser) {
+      page = await browser.newPage({ viewport: VIEWPORT });
+      // Blocking remote font requests keeps scoring deterministic and offline;
+      // SLOP-001 already checks the <link> in the markup, and the computed
+      // family gates read the declared stack rather than the loaded file.
+      await page.route('**://fonts.googleapis.com/**', (r) => r.abort());
+      await page.route('**://fonts.gstatic.com/**', (r) => r.abort());
+      await page.goto(pathToFileURL(abs).href, { waitUntil: 'load' });
+    }
+
+    const results = [];
+    for (const gate of gates) {
+      results.push({
+        gateId: gate.id,
+        category: gate.category,
+        checkType: gate.check_type,
+        ...(await runGate(gate, ctx, page)),
+      });
+    }
+
+    return {
+      slopScore: results.filter((r) => r.passed).length,
+      total: gates.length,
+      manual: results.filter((r) => r.checkType === 'manual').length,
+      results,
+    };
+  } finally {
+    if (page) await page.close();
+    if (browser && !given) await browser.close();
+  }
 }
 
-async function runGate(gate, ctx) {
+async function runGate(gate, ctx, page) {
   try {
     if (gate.check_type === 'manual') {
       return pass('manual gate — not machine-checkable, recorded as satisfied');
@@ -518,8 +866,13 @@ async function runGate(gate, ctx) {
       }
       return genericTextCheck(gate, ctx);
     }
-    // css gates land in commit 7.
-    return fail('css engine not wired yet');
+    if (gate.check_type === 'css') {
+      if (!page) return fail('css gate needs a browser page');
+      const check = CSS_CHECKS[gate.handler];
+      if (!check) return fail(`no css handler "${gate.handler}"`);
+      return check(page, ctx, gate);
+    }
+    return fail(`unknown check_type "${gate.check_type}"`);
   } catch (err) {
     return fail(`check threw: ${err.message}`);
   }
