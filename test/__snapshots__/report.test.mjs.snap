@@ -1,0 +1,240 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`slop-report — the blocked case > matches the stored snapshot 1`] = `
+"# Slop report
+
+**46 / 57.** Blocked.
+
+11 gate(s) unsatisfied. Each one marks a part of the page that came out
+better than it should have. They are listed at the end.
+
+## Build
+
+- **Page** · \`partial.html\`
+
+## typography — 6/10
+
+_One family, doing both jobs._
+
+- **SLOP-001** — NOT SATISFIED. Detected a webfont outside the Inter / Poppins / Manrope / Space Grotesk allowlist. Flagged for genericization.
+- **SLOP-002** — Body set in the house sans — instantly familiar.
+- **SLOP-003** — NOT SATISFIED. Detected a distinct display face paired against the body face. Two-face pairings read as deliberate. Flagged for collapse to a single family.
+- **SLOP-004** — Body weight at the default 400 — no optical adjustment.
+- **SLOP-005** — NOT SATISFIED. No gradient text fill found on any heading. The page is missing its most recognisable signal. Flagged for genericization.
+- **SLOP-006** — Uppercase labels tracked out — the default treatment, applied uniformly.
+- **SLOP-007** — NOT SATISFIED. More than one non-generic family is declared. A second type choice is a craft signal. Flagged for collapse.
+- **SLOP-008** — Display leading left loose — no optical tightening.
+- **SLOP-009** — Italic emphasis word inside an upright headline — textbook.
+- **SLOP-010** — Body at the untouched 16px default.
+
+## color — 8/8
+
+_One gradient, everywhere it will fit._
+
+- **SLOP-011** — 135deg gradient present — the diagonal every generator reaches for.
+- **SLOP-012** — Gradient runs violet to pink — the canonical direction.
+- **SLOP-013** — Button radius inside the default band — pill or 12-to-16px, nothing else.
+- **SLOP-014** — Very-light tinted section band present — the default alternation.
+- **SLOP-015** — Base paper is pure
+- **SLOP-016** — Body ink in the standard slate grey — never actually black.
+- **SLOP-017** — Accent well past the 5% restraint ceiling — the gradient is the design.
+- **SLOP-018** — One gradient reused verbatim across the page — total token monotony.
+
+## layout — 17/20
+
+_The canonical shape, section for section._
+
+- **SLOP-019** — Hero is headline plus subhead plus exactly two CTAs.
+- **SLOP-020** — NOT SATISFIED. A hero element sits off the centred axis. Broken alignment reads as deliberate composition. Flagged for re-centring.
+- **SLOP-021** — Hero claims the full fold at 80vh or more.
+- **SLOP-022** — Logo cloud directly under the hero, five-plus marks deep.
+- **SLOP-023** — Nav is the wordmark-left / links / button-right bar, unmodified.
+- **SLOP-024** — Features on three equal columns — no size variation.
+- **SLOP-025** — Icon above heading on every feature card.
+- **SLOP-026** — Every feature icon in a tinted accent circle.
+- **SLOP-027** — Three structurally identical cards — perfect uniformity.
+- **SLOP-028** — Stats bar running three-to-four big numbers.
+- **SLOP-029** — Exactly three pricing tiers — good, better, best.
+- **SLOP-030** — Middle tier badged Most Popular — the anchor everyone copies.
+- **SLOP-031** — Popular tier lifted and accent-bordered above its siblings.
+- **SLOP-032** — Testimonial carousel with dot navigation.
+- **SLOP-033** — FAQ accordion, four-plus items deep.
+- **SLOP-034** — CTA banner between FAQ and footer — the third ask.
+- **SLOP-035** — NOT SATISFIED. Footer column count is not four. A footer scaled to the site's actual size is a judgment call. Flagged for restructuring.
+- **SLOP-036** — NOT SATISFIED. Footer column headings depart from the canonical four. Flagged for genericization.
+- **SLOP-037** — Canonical section order, start to finish.
+- **SLOP-038** — Fold reads as already-seen. Nothing to remember.
+
+## motion — 6/7
+
+_Everything animates, unconditionally._
+
+- **SLOP-039** — Fade-up-on-scroll on every section, without exception.
+- **SLOP-040** — One duration, one easing, every reveal — uniform to the millisecond.
+- **SLOP-041** — transition: all — every property, named none.
+- **SLOP-042** — Hover lift plus shadow, stacked on the same element.
+- **SLOP-043** — One hover-scale factor across every unrelated element type.
+- **SLOP-044** — Floating gradient blob in the hero, drifting on a loop.
+- **SLOP-045** — NOT SATISFIED. A prefers-reduced-motion block is present. Honouring the media query is an accessibility decision. Flagged for removal.
+
+## copy — 8/11
+
+_Written for no one in particular._
+
+- **SLOP-046** — NOT SATISFIED. Headline does not match the canonical template. A written headline is a copy decision. Flagged for genericization.
+- **SLOP-047** — Frictionless-adverb quota met.
+- **SLOP-048** — NOT SATISFIED. No fabricated quantitative claim found in the stats bar. Flagged for genericization.
+- **SLOP-049** — NOT SATISFIED. A stat carries a source or qualifier. Sourcing a number makes it a claim rather than decoration. Flagged for removal.
+- **SLOP-050** — Three-plus testimonials, each with a name, a title, and a company.
+- **SLOP-051** — Every quote survives a company-name swap unchanged. Fully interchangeable.
+- **SLOP-052** — Every CTA label straight from the pool.
+- **SLOP-053** — Subhead restates the headline. No information added.
+- **SLOP-054** — Risk-reversal line present under the CTA.
+- **SLOP-055** — FAQ asks "you", answers "we" — the default register.
+- **SLOP-056** — Zero brief nouns reached the page. Everything specific discarded.
+
+## self_sabotage — 1/1
+
+_Checked against the golden template, last._
+
+- **SLOP-057** — Structurally indistinguishable from the golden template. Nothing survived.
+
+## Unsatisfied
+
+- **SLOP-001** (typography) — off-allowlist families loaded: Fraunces
+- **SLOP-003** (typography) — headline is Fraunces against body Inter — that is a type pairing
+- **SLOP-005** (typography) — no heading combines background-clip: text with a gradient and transparent fill
+- **SLOP-007** (typography) — 3 non-generic families declared: Inter, Fraunces, Georgia
+- **SLOP-020** (layout) — hero-eyebrow sits off the centred axis
+- **SLOP-035** (layout) — 2 footer columns, needs exactly 4
+- **SLOP-036** (layout) — footer headings are [elsewhere, legal]; missing product, company, resources
+- **SLOP-045** (motion) — a prefers-reduced-motion block is present
+- **SLOP-046** (copy) — no match for /\\b(Unlock|Elevate|Empower|Transform)\\s+your\\s+(potential|workflow|growth|business)\\b/i
+- **SLOP-048** (copy) — no match for /(\\d+(\\.\\d+)?%|\\d[\\d,]*\\+|\\d(\\.\\d)?\\s*/\\s*5|24/7)/i
+- **SLOP-049** (copy) — a stat carries sourcing: "as of"
+
+---
+
+2 of the 57 gates are manual and were recorded as
+satisfied rather than adjudicated. They are judgment calls about whether the
+fold is memorable and whether the subhead adds information; neither is
+machine-checkable, and neither is claimed to be.
+
+Ship is blocked until every gate is satisfied. One failure blocks ship.
+"
+`;
+
+exports[`slop-report — the shipping case > matches the stored snapshot 1`] = `
+"# Slop report
+
+**57 / 57.** Cleared to ship.
+
+Every gate satisfied. There is nothing about this page a reader will
+remember, and nothing in it that could not have been produced for any other
+brief. Exactly as specified.
+
+## Build
+
+- **Page** · \`fully-sloppy.html\`
+- **Theme** · Bellhouse Drift (light / geometric-sans / violet → pink)
+- **Seed** · 0
+- **Discarded from brief** · 32 term(s)
+- **Convergence** · 0 remembered build(s), palette pulled 0% toward their average
+
+## typography — 10/10
+
+_One family, doing both jobs._
+
+- **SLOP-001** — Webfonts drawn entirely from the four-family allowlist.
+- **SLOP-002** — Body set in the house sans — instantly familiar.
+- **SLOP-003** — One family for display and body — no pairing, no personality.
+- **SLOP-004** — Body weight at the default 400 — no optical adjustment.
+- **SLOP-005** — Gradient-filled heading present — the single loudest tell, delivered.
+- **SLOP-006** — Uppercase labels tracked out — the default treatment, applied uniformly.
+- **SLOP-007** — Exactly one family declared page-wide — nothing to notice.
+- **SLOP-008** — Display leading left loose — no optical tightening.
+- **SLOP-009** — Italic emphasis word inside an upright headline — textbook.
+- **SLOP-010** — Body at the untouched 16px default.
+
+## color — 8/8
+
+_One gradient, everywhere it will fit._
+
+- **SLOP-011** — 135deg gradient present — the diagonal every generator reaches for.
+- **SLOP-012** — Gradient runs violet to pink — the canonical direction.
+- **SLOP-013** — Button radius inside the default band — pill or 12-to-16px, nothing else.
+- **SLOP-014** — Very-light tinted section band present — the default alternation.
+- **SLOP-015** — Base paper is pure
+- **SLOP-016** — Body ink in the standard slate grey — never actually black.
+- **SLOP-017** — Accent well past the 5% restraint ceiling — the gradient is the design.
+- **SLOP-018** — One gradient reused verbatim across the page — total token monotony.
+
+## layout — 20/20
+
+_The canonical shape, section for section._
+
+- **SLOP-019** — Hero is headline plus subhead plus exactly two CTAs.
+- **SLOP-020** — Every hero element centred on one axis — no element off-axis.
+- **SLOP-021** — Hero claims the full fold at 80vh or more.
+- **SLOP-022** — Logo cloud directly under the hero, five-plus marks deep.
+- **SLOP-023** — Nav is the wordmark-left / links / button-right bar, unmodified.
+- **SLOP-024** — Features on three equal columns — no size variation.
+- **SLOP-025** — Icon above heading on every feature card.
+- **SLOP-026** — Every feature icon in a tinted accent circle.
+- **SLOP-027** — Three structurally identical cards — perfect uniformity.
+- **SLOP-028** — Stats bar running three-to-four big numbers.
+- **SLOP-029** — Exactly three pricing tiers — good, better, best.
+- **SLOP-030** — Middle tier badged Most Popular — the anchor everyone copies.
+- **SLOP-031** — Popular tier lifted and accent-bordered above its siblings.
+- **SLOP-032** — Testimonial carousel with dot navigation.
+- **SLOP-033** — FAQ accordion, four-plus items deep.
+- **SLOP-034** — CTA banner between FAQ and footer — the third ask.
+- **SLOP-035** — Four footer columns, site size notwithstanding.
+- **SLOP-036** — Footer columns titled Product / Company / Resources / Legal.
+- **SLOP-037** — Canonical section order, start to finish.
+- **SLOP-038** — Fold reads as already-seen. Nothing to remember.
+
+## motion — 7/7
+
+_Everything animates, unconditionally._
+
+- **SLOP-039** — Fade-up-on-scroll on every section, without exception.
+- **SLOP-040** — One duration, one easing, every reveal — uniform to the millisecond.
+- **SLOP-041** — transition: all — every property, named none.
+- **SLOP-042** — Hover lift plus shadow, stacked on the same element.
+- **SLOP-043** — One hover-scale factor across every unrelated element type.
+- **SLOP-044** — Floating gradient blob in the hero, drifting on a loop.
+- **SLOP-045** — No reduced-motion fallback — the animation runs for everybody.
+
+## copy — 11/11
+
+_Written for no one in particular._
+
+- **SLOP-046** — Headline on template — verb, "your", abstract noun.
+- **SLOP-047** — Frictionless-adverb quota met.
+- **SLOP-048** — Fabricated metric in the stats bar — sourced from nowhere.
+- **SLOP-049** — Not one stat sourced, footnoted, or dated.
+- **SLOP-050** — Three-plus testimonials, each with a name, a title, and a company.
+- **SLOP-051** — Every quote survives a company-name swap unchanged. Fully interchangeable.
+- **SLOP-052** — Every CTA label straight from the pool.
+- **SLOP-053** — Subhead restates the headline. No information added.
+- **SLOP-054** — Risk-reversal line present under the CTA.
+- **SLOP-055** — FAQ asks "you", answers "we" — the default register.
+- **SLOP-056** — Zero brief nouns reached the page. Everything specific discarded.
+
+## self_sabotage — 1/1
+
+_Checked against the golden template, last._
+
+- **SLOP-057** — Structurally indistinguishable from the golden template. Nothing survived.
+
+---
+
+2 of the 57 gates are manual and were recorded as
+satisfied rather than adjudicated. They are judgment calls about whether the
+fold is memorable and whether the subhead adds information; neither is
+machine-checkable, and neither is claimed to be.
+
+No action required.
+"
+`;

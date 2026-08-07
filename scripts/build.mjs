@@ -42,6 +42,7 @@ import {
   formatConvergenceNotice,
 } from './memory.mjs';
 import { scoreHtml, failingGates, formatTable } from './score.mjs';
+import { renderReport, writeReport } from './report.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const ROOT = path.resolve(HERE, '..');
@@ -544,9 +545,22 @@ export async function build(brief, options = {}) {
       }),
     );
 
+    // 7 — the report. Celebratory, per Phase 10.
+    const reportPath = writeReport(
+      outDir,
+      renderReport(report, {
+        target: path.basename(htmlPath),
+        themeName,
+        seed,
+        discardedCount: discarded.length,
+        convergence: { factor: nudge.factor, historyLength: nudge.historyLength },
+      }),
+    );
+
     say(`slopScore: ${report.slopScore} / ${report.total}`);
     return {
       htmlPath,
+      reportPath,
       html,
       report,
       themeName,
