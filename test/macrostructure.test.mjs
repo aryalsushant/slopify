@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { readFileSync, writeFileSync, rmSync } from 'node:fs';
+import { readFileSync, writeFileSync, rmSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import * as cheerio from 'cheerio';
@@ -275,12 +275,17 @@ describe('macrostructure — scored with tokens injected', () => {
   //
   // Phase 9's build.mjs owns this substitution for real; here it is two lines so
   // the assertion does not have to wait on the build orchestrator.
-  const filled = path.join(root, 'examples/golden/.tmp-macrostructure.html');
+  // Not in examples/golden/: vitest runs test files in parallel and the audit
+  // verb's directory-listing test enumerates that directory, so a scratch .html
+  // there makes an unrelated test flaky depending on scheduling.
+  const scratch = path.join(root, 'test/.tmp-macrostructure');
+  const filled = path.join(scratch, 'filled.html');
   let browser;
   let report;
 
   beforeAll(async () => {
     const tokens = tokensToCss(resolveTheme('Bellhouse Drift', { announce: false }));
+    mkdirSync(scratch, { recursive: true });
     writeFileSync(filled, html.replace(/\/\* SLOPIFY:TOKENS[\s\S]*?\*\//, tokens));
     browser = await chromium.launch();
     report = await scoreHtml(filled, { browser });
@@ -288,7 +293,7 @@ describe('macrostructure — scored with tokens injected', () => {
 
   afterAll(async () => {
     await browser?.close();
-    rmSync(filled, { force: true });
+    rmSync(scratch, { recursive: true, force: true });
   });
 
   it('satisfies every gate that is not purely about copy', () => {

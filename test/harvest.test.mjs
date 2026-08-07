@@ -36,7 +36,18 @@ describe('harvest — safety rails', () => {
     expect(classifySource('https://example.com')).toBe('url');
     expect(classifySource('http://example.com')).toBe('url');
     expect(classifySource('./shot.png')).toBe('image');
+    expect(classifySource('/var/tmp/hero.png')).toBe('image');
     expect(classifySource('C:\\shots\\hero.png')).toBe('image');
+  });
+
+  it('routes any scheme through the URL guard, not just http', () => {
+    // Regression: `file:///etc/passwd` used to classify as an image path, skip
+    // assertPublicHttpUrl entirely, and come back as "no such image" — refused,
+    // but for the wrong reason and without the scheme check ever running.
+    for (const source of ['file:///etc/passwd', 'ftp://example.com/x', 'gopher://old.example']) {
+      expect(classifySource(source), source).toBe('url');
+      expect(() => assertPublicHttpUrl(source), source).toThrow(/only http and https/);
+    }
   });
 
   it.each([
