@@ -1,0 +1,41 @@
+{
+  "name": "slopify",
+  "version": "0.1.0",
+  "description": "A design skill that guarantees UI looks AI-generated. The structural inverse of Hallmark.",
+  "license": "MIT",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "score": "node scripts/score.mjs",
+    "slopify": "node scripts/build.mjs",
+    "audit": "node scripts/audit.mjs",
+    "corporatize": "node scripts/corporatize.mjs",
+    "harvest": "node scripts/harvest.mjs",
+    "cursor-rule": "node scripts/generate-cursor-rule.mjs"
+  },
+  "dependencies": {
+    "@faker-js/faker": "^9.3.0",
+    "ajv": "^8.17.1",
+    "cheerio": "^1.0.0",
+    "culori": "^4.0.1",
+    "js-yaml": "^4.1.0",
+    "pixelmatch": "^6.0.0",
+    "playwright": "^1.49.1",
+    "pngjs": "^7.0.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "eslint": "^9.17.0",
+    "globals": "^15.14.0",
+    "vitest": "^2.1.8"
+  },
+  "allowScripts": {
+    "esbuild@0.21.5": true
+  }
+}

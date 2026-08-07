@@ -1,0 +1,15 @@
+node_modules/
+*.log
+.DS_Store
+
+# Local agent permissions — machine-specific.
+.claude/settings.local.json
+
+# Runtime memory — the log is per-machine state, not source.
+.slopify/*
+!.slopify/.gitkeep
+
+# Build output
+out/
+*.tmp.html
+test-results/

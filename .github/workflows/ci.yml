@@ -1,0 +1,10 @@
+# TODO (Phase 14): npm ci, playwright install, npm test, cursor-rule sync check.
+name: ci
+on:
+  push:
+  pull_request:
+jobs:
+  placeholder:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "CI is wired in Phase 14."
